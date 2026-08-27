@@ -1,20 +1,30 @@
 # Hookback v1 handoff
 
-## Independent verification disposition — FAIL (2026-08-27)
+## Repair verification — ready to release locally (2026-08-27)
 
-Candidate `48d81d6323e3a703d8f55a44c029173265698b10` was independently tested
-from a fresh clone and verified byte-for-byte against
-<https://song-loop-earcoach.sociobot.in/>. The core loop/import/MIDI feedback,
-privacy behavior, accessibility, offline reload, tests, build, and performance
-passed. Release **fails** because the simulated service-worker update never
-shows the required in-app update toast and live hashed assets use only
-`Cache-Control: public, must-revalidate, max-age=30` rather than immutable
-caching. The live host also lacks CSP and Permissions-Policy headers.
+This repair supersedes the **FAIL** disposition for candidate
+`48d81d6323e3a703d8f55a44c029173265698b10` in
+[verification-1.md](verification-1.md). It preserves the independently
+passing local-first loop, import, MIDI, privacy, accessibility, and offline
+flows, and repairs every reported release finding:
 
-See [verification-1.md](verification-1.md) for commands, exact SHA-256
-identity evidence, test results, response headers, severity, and required
-release actions. Do not mark this candidate as released until the two medium
-issues are corrected and reverified.
+- Service-worker updates now install into the waiting state. A controlled app
+  shows the persistent “Fresh version ready” notice; **Update** sends an
+  explicit `SKIP_WAITING` message and reloads only after `controllerchange`.
+  The notice also survives ordinary app rerenders.
+- `public/staticwebapp.config.json` is deployed with the static site. It gives
+  `/assets/*` `Cache-Control: public, max-age=31536000, immutable`, keeps
+  `/sw.js` and the manifest revalidatable, and serves `.webmanifest` as
+  `application/manifest+json`.
+- The same config adds a self-only CSP (with only the two Sociobot billing
+  origins and the local `blob:` audio/image uses needed by Hookback) plus an
+  explicit `Permissions-Policy` that scopes microphone and MIDI to this
+  origin and disables unrelated sensitive capabilities.
+
+The two requested regression layers are in place: Vitest asserts the shipped
+response-policy configuration, and Playwright creates a real waiting update
+on a controlled page, confirms the toast, clicks Update, and confirms that
+the replacement worker controls the reload.
 
 ## What was built
 
@@ -61,25 +71,30 @@ npm run preview
 `npm run build` is the exact build command. It produces `dist/index.html` at
 the required static deploy root.
 
-Verification completed on 2026-08-27:
+Repair verification completed on 2026-08-27:
 
-- Vitest: 4/4 unit tests passed (pitch detection, silence handling, contour
-  matching, useful low-signal feedback).
-- Playwright at 390×844: 5/5 passed. It covers local WAV import, A/B persistence
-  after reload, an end-to-end simulated MIDI answer and comparison, keyboard
-  focus order, axe checks in empty and active states, direct legal routes, and
-  a reload with `context.setOffline(true)` served by the service worker.
-- Axe: zero serious or critical violations in empty and populated workbench
-  states.
-- Console/page-error capture: zero errors on initial load.
-- Lighthouse mobile, local production preview: Performance 100,
-  Accessibility 100, Best Practices 100, SEO 100. FCP 0.9 s, LCP 1.2 s,
-  CLS 0, total blocking time 0 ms.
-- Production assets: 30.32 KB JS and 14.97 KB CSS uncompressed (11.21 KB and
-  4.33 KB gzip); no runtime dependencies, CDN scripts, remote fonts, tracking,
-  or analytics. Hero WebP is 29 KB.
-- Manual visual review completed at 1440×1000 and 390×844. Touch controls are
-  at least 44 px and the three-stage workbench stacks intentionally on mobile.
+- Fresh `npm ci`: passed, 0 vulnerabilities.
+- `npm test`: 7/7 passed (the original four pitch tests plus three exact static
+  response-policy regression tests).
+- `npm run build`: passed (`tsc --noEmit && vite build`), producing
+  `dist/index.html`; the repaired production bundle is 30.79 KB JS (11.38 KB
+  gzip) and 14.97 KB CSS (4.33 KB gzip).
+- `npm run test:e2e`: 6/6 passed at 390×844. It retains local WAV import,
+  persisted A/B loop, simulated MIDI comparison, keyboard order, legal routes,
+  axe checks, and explicit offline reload; it adds the controlled
+  service-worker update/activate regression.
+- `verify-url.sh` against the production-style SWA emulator found zero console
+  or page errors, a title, `lang=en`, one `h1`, one `main`, and no missing image
+  alt text. Its desktop and 390×844 screenshots were captured. An additional
+  Playwright check found no horizontal overflow or console errors at 1440×1000
+  or 390×844 under the deployed CSP.
+- Axe CLI against the SWA emulator: 0 violations. Lighthouse mobile on the
+  SWA emulator: Performance 100, Accessibility 100, Best Practices 100, SEO
+  100; FCP 1.3 s, LCP 1.7 s, CLS 0, total blocking time 0 ms.
+- Direct emulator header checks confirmed immutable JS caching, revalidatable
+  worker/manifest caching, `application/manifest+json`, CSP, and
+  Permissions-Policy. No analytics, CDN scripts, remote fonts, or tracking
+  were added.
 
 ## Known limits and next steps
 

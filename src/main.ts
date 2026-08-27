@@ -17,12 +17,14 @@ type State = {
   error: string;
   unlocked: boolean;
   licenseNote: string;
+  updateReady: boolean;
+  applyingUpdate: boolean;
 };
 
 const state: State = {
   clips: [], active: null, buffer: null, busy: true, recording: false,
   mode: "microphone", comparison: null, answer: [], message: "", error: "",
-  unlocked: optimisticallyUnlocked(), licenseNote: ""
+  unlocked: optimisticallyUnlocked(), licenseNote: "", updateReady: false, applyingUpdate: false
 };
 
 let objectUrl = "";
@@ -34,6 +36,7 @@ let mediaChunks: Blob[] = [];
 let midiAccess: { inputs: Map<string, { onmidimessage: ((event: { data: Uint8Array }) => void) | null }> } | null = null;
 let midiNotes: number[] = [];
 let waveformBase: ImageData | null = null;
+let serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 const $ = <T extends HTMLElement>(selector: string) => document.querySelector<T>(selector);
@@ -90,7 +93,7 @@ function render(): void {
       ${supportMarkup()}
     </main>
     <footer><p>Made for patient ears. Your clips and recordings never leave this device.</p><nav aria-label="Legal"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><button class="text-button" id="export-data">Export my data</button><button class="text-button" id="import-trigger">Import backup</button></nav><input class="visually-hidden" id="import-data" type="file" accept="application/json" aria-label="Choose Hookback backup to import"><p class="generated-note">Abstract artwork generated for Hookback with the Factory image model.</p></footer>
-    <div id="update-toast" class="toast" role="status" hidden>Fresh version ready. <button id="apply-update">Update</button></div>
+    <div id="update-toast" class="toast" role="status" aria-live="polite" ${state.updateReady ? "" : "hidden"}>Fresh version ready. <button id="apply-update" ${state.applyingUpdate ? "disabled" : ""}>${state.applyingUpdate ? "Updating…" : "Update"}</button></div>
   `;
   bindCommon();
   if (clip) bindPractice();
@@ -189,6 +192,7 @@ function bindCommon(): void {
       removeLicense(); state.unlocked = false; state.licenseNote = "License removed from this device."; render();
     }
   });
+  $("#apply-update")?.addEventListener("click", applyServiceWorkerUpdate);
   $("#pack-form")?.addEventListener("submit", event => void savePack(event));
 }
 
@@ -580,19 +584,40 @@ async function registerServiceWorker(): Promise<void> {
   if (!("serviceWorker" in navigator) || import.meta.env.DEV) return;
   try {
     const registration = await navigator.serviceWorker.register("/sw.js");
-    registration.addEventListener("updatefound", () => {
-      const worker = registration.installing;
+    serviceWorkerRegistration = registration;
+    const showUpdate = () => {
+      if (!navigator.serviceWorker.controller || state.updateReady) return;
+      state.updateReady = true;
+      state.applyingUpdate = false;
+      render();
+    };
+    const watchInstallingWorker = (worker: ServiceWorker | null) => {
       worker?.addEventListener("statechange", () => {
-        if (worker.state === "installed" && navigator.serviceWorker.controller) {
-          const toast = $("#update-toast") as HTMLElement | null;
-          if (toast) toast.hidden = false;
-          $("#apply-update")?.addEventListener("click", () => location.reload());
-        }
+        if (worker.state === "installed") showUpdate();
       });
+    };
+    if (registration.waiting) showUpdate();
+    registration.addEventListener("updatefound", () => {
+      watchInstallingWorker(registration.installing);
     });
   } catch {
     // The app remains fully usable online when service-worker registration is unavailable.
   }
+}
+
+function applyServiceWorkerUpdate(): void {
+  const waiting = serviceWorkerRegistration?.waiting;
+  if (!waiting) {
+    state.updateReady = false;
+    state.applyingUpdate = false;
+    setAnnouncement("This version is already active.");
+    render();
+    return;
+  }
+  state.applyingUpdate = true;
+  render();
+  navigator.serviceWorker.addEventListener("controllerchange", () => location.reload(), { once: true });
+  waiting.postMessage({ type: "SKIP_WAITING" });
 }
 
 async function init(): Promise<void> {

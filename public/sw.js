@@ -1,4 +1,4 @@
-const VERSION = "hookback-v1";
+const VERSION = "hookback-v2";
 const SHELL = ["/", "/offline.html", "/manifest.webmanifest", "/assets/icon-192.png", "/assets/icon-512.png", "/assets/hookback-ribbon.webp", "/privacy/", "/terms/"];
 
 self.addEventListener("install", event => {
@@ -11,8 +11,11 @@ self.addEventListener("install", event => {
       const assets = [...markup.matchAll(/(?:src|href)="(\/assets\/[^\"]+)"/g)].map(match => match[1]);
       await cache.addAll(assets);
     } catch { /* shell routes still provide the offline fallback */ }
-    await self.skipWaiting();
   })());
+});
+
+self.addEventListener("message", event => {
+  if (event.data?.type === "SKIP_WAITING") event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener("activate", event => {

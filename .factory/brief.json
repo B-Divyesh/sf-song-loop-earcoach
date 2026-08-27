@@ -1,0 +1,8 @@
+{
+  "slug": "song-loop-earcoach",
+  "title": "Hookback",
+  "artifact_class": "pwa-offline",
+  "smallest_useful_product": "PWA that accepts a local audio clip, loops an A/B region, records a short microphone or MIDI answer, estimates contour/pitch distance, and keeps a lightweight practice queue.",
+  "user": "Self-taught instrumentalists who want to learn melodies by ear from songs they already like.",
+  "monetization": "freemium"
+}

@@ -1,0 +1,17 @@
+{
+  "id": "/",
+  "name": "Hookback — learn songs by ear",
+  "short_name": "Hookback",
+  "description": "Loop your own song clips, answer from memory, and compare melodic contour privately on your device.",
+  "start_url": "/?source=installed&v=1",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#121815",
+  "theme_color": "#121815",
+  "categories": ["music", "education"],
+  "icons": [
+    { "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

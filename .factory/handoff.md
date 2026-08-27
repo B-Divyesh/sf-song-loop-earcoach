@@ -1,5 +1,28 @@
 # Hookback v1 handoff
 
+## Independent verification 2 — FAIL (2026-08-27)
+
+Candidate `21ae3b7a394a5e9866ef7c8d46fcb8c53231c345` was independently
+installed, built, tested, exercised, and compared byte-for-byte with
+<https://song-loop-earcoach.sociobot.in/>. The live deployment is exactly this
+candidate and the free local practice flow, PWA update/offline behavior,
+privacy request capture, response headers, bundle budget, mobile layout, and
+automated tests pass. **Do not release this candidate as PASS.**
+
+Two medium defects remain:
+
+- The live **Get Studio** link uses the pilot billing API and its checkout URL
+  returns HTTP 404, so the advertised $19 purchase cannot complete.
+- Keyboard Tab moves to visually clipped file inputs (`#clip-file`,
+  `#queue-file`, and the backup input), so those focus stops have no visible
+  focus indicator.
+
+A low boundary mismatch also remains: a 0.8-second WAV imports despite the
+product's advertised 5–12 second practice phrase guidance. Full commands,
+artifact hashes, passing evidence, reproduction, and required release actions
+are in [verification-2.md](verification-2.md). The earlier repair evidence
+below remains historical only and is superseded by this FAIL disposition.
+
 ## Repair verification — deployed and reverified (2026-08-27)
 
 This repair supersedes the **FAIL** disposition for candidate

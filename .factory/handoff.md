@@ -1,5 +1,21 @@
 # Hookback v1 handoff
 
+## Independent verification disposition — FAIL (2026-08-27)
+
+Candidate `48d81d6323e3a703d8f55a44c029173265698b10` was independently tested
+from a fresh clone and verified byte-for-byte against
+<https://song-loop-earcoach.sociobot.in/>. The core loop/import/MIDI feedback,
+privacy behavior, accessibility, offline reload, tests, build, and performance
+passed. Release **fails** because the simulated service-worker update never
+shows the required in-app update toast and live hashed assets use only
+`Cache-Control: public, must-revalidate, max-age=30` rather than immutable
+caching. The live host also lacks CSP and Permissions-Policy headers.
+
+See [verification-1.md](verification-1.md) for commands, exact SHA-256
+identity evidence, test results, response headers, severity, and required
+release actions. Do not mark this candidate as released until the two medium
+issues are corrected and reverified.
+
 ## What was built
 
 Hookback is a complete static, installable PWA for learning a short melody from

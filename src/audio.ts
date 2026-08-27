@@ -38,13 +38,17 @@ export function frequencyToMidi(hz: number): number {
 
 export function extractPitchTrack(buffer: AudioBuffer, start = 0, end = buffer.duration): number[] {
   const source = buffer.getChannelData(0);
-  const frame = 2048;
-  const step = Math.max(512, Math.floor(buffer.sampleRate * 0.06));
+  const downsample = Math.max(1, Math.floor(buffer.sampleRate / 12_000));
+  const effectiveRate = buffer.sampleRate / downsample;
+  const frame = 1024;
+  const step = Math.max(256, Math.floor(effectiveRate * 0.08));
   const first = Math.max(0, Math.floor(start * buffer.sampleRate));
-  const last = Math.min(source.length - frame, Math.floor(end * buffer.sampleRate));
+  const last = Math.min(source.length - frame * downsample, Math.floor(end * buffer.sampleRate));
   const values: number[] = [];
-  for (let offset = first; offset <= last; offset += step) {
-    const hz = autoCorrelate(source.subarray(offset, offset + frame), buffer.sampleRate);
+  const window = new Float32Array(frame);
+  for (let offset = first; offset <= last; offset += step * downsample) {
+    for (let i = 0; i < frame; i += 1) window[i] = source[offset + i * downsample];
+    const hz = autoCorrelate(window, effectiveRate);
     if (hz) values.push(frequencyToMidi(hz));
   }
   return cleanTrack(values);

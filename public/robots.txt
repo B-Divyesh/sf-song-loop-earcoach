@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://song-loop-earcoach.sociobot.in/sitemap.xml

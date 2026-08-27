@@ -131,7 +131,7 @@ h1 span { -webkit-text-stroke: 1px var(--paper); color: transparent; }
 .hint strong { font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; }
 .hint p { margin: 3px 0 0; color: var(--muted); font-size: .9rem; }
 
-.queue-section, .progress, .upgrade, .support { padding: clamp(64px, 8vw, 108px) 0; border-bottom: 1px solid var(--rule); content-visibility: auto; contain-intrinsic-size: 600px; }
+.queue-section, .progress, .upgrade, .support { padding: clamp(64px, 8vw, 108px) 0; border-bottom: 1px solid var(--rule); }
 .upload-small { cursor: pointer; }
 .queue-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
 .queue-item { position: relative; display: grid; grid-template-columns: 1fr auto; border-bottom: 1px solid var(--rule); }

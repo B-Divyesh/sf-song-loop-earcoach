@@ -33,6 +33,7 @@ let mediaStream: MediaStream | null = null;
 let mediaChunks: Blob[] = [];
 let midiAccess: { inputs: Map<string, { onmidimessage: ((event: { data: Uint8Array }) => void) | null }> } | null = null;
 let midiNotes: number[] = [];
+let waveformBase: ImageData | null = null;
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 const $ = <T extends HTMLElement>(selector: string) => document.querySelector<T>(selector);
@@ -75,8 +76,8 @@ function render(): void {
           <p class="eyebrow">Your song. Your ear. No upload.</p>
           <h1 id="page-title">Catch the hook<br><span>before it gets away.</span></h1>
           <p class="dek">Loop one phrase, play it back from memory, then see where your melodic shape bends. Everything stays on this device.</p>
-          ${!clip ? `<label class="primary upload-button" for="clip-file"><span>Add a song clip</span><small>Audio files stay private</small></label>
-          <input id="clip-file" class="visually-hidden" type="file" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac" />` : ""}
+          ${!clip ? `<button class="primary upload-button" id="clip-trigger"><span>Add a song clip</span><small>Audio files stay private</small></button>
+          <input id="clip-file" class="visually-hidden" type="file" aria-label="Choose an audio clip" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac" />` : ""}
         </div>
         ${!clip ? `<figure class="hero-art"><picture><source srcset="/assets/hookback-ribbon.webp" type="image/webp"><img src="/assets/hookback-ribbon.jpg" width="1152" height="768" alt="An angular paper ribbon folding back through three melodic contours" decoding="async" fetchpriority="high"></picture><figcaption>Hear it. Hold it. Hook it back.</figcaption></figure>` : ""}
       </section>
@@ -149,7 +150,7 @@ function comparisonMarkup(): string {
 }
 
 function queueMarkup(): string {
-  return `<section class="queue-section" aria-labelledby="queue-title"><div class="section-heading"><div><p class="eyebrow">Practice queue</p><h2 id="queue-title">Hooks to bring back</h2></div><label class="secondary upload-small" for="queue-file">+ Add clip</label><input id="queue-file" class="visually-hidden" type="file" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac" /></div>
+  return `<section class="queue-section" aria-labelledby="queue-title"><div class="section-heading"><div><p class="eyebrow">Practice queue</p><h2 id="queue-title">Hooks to bring back</h2></div><button class="secondary upload-small" id="queue-trigger">+ Add clip</button><input id="queue-file" class="visually-hidden" type="file" aria-label="Choose another audio clip" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac" /></div>
     ${state.clips.length ? `<ul class="queue-list">${state.clips.map((item, index) => {
       const latest = item.attempts.at(-1); const active = item.id === state.active?.id;
       return `<li class="queue-item ${active ? "active" : ""}"><button class="queue-open" data-clip="${item.id}" ${active ? 'aria-current="true"' : ""}><span class="queue-index">${String(index + 1).padStart(2, "0")}</span><span><strong>${escapeHtml(item.name)}</strong><small>${formatTime(item.b - item.a)} loop · ${latest ? `${latest.score}% last match` : "New"}${item.pack ? ` · ${escapeHtml(item.pack)}` : ""}</small></span><span class="queue-arrow" aria-hidden="true">↗</span></button><button class="delete-clip" data-delete="${item.id}" aria-label="Remove ${escapeHtml(item.name)} from queue">×</button></li>`;
@@ -168,7 +169,9 @@ function supportMarkup(): string {
 }
 
 function bindCommon(): void {
+  $("#clip-trigger")?.addEventListener("click", () => $("#clip-file")?.click());
   $("#clip-file")?.addEventListener("change", event => void receiveFile((event.target as HTMLInputElement).files?.[0]));
+  $("#queue-trigger")?.addEventListener("click", () => $("#queue-file")?.click());
   $("#queue-file")?.addEventListener("change", event => void receiveFile((event.target as HTMLInputElement).files?.[0]));
   $("#change-clip")?.addEventListener("click", () => $("#queue-file")?.click());
   document.querySelectorAll<HTMLElement>("[data-clip]").forEach(button => button.addEventListener("click", () => void activateClip(button.dataset.clip!)));
@@ -243,6 +246,7 @@ async function receiveFile(file?: File): Promise<void> {
 function setObjectUrl(blob: Blob): void {
   if (objectUrl) URL.revokeObjectURL(objectUrl);
   objectUrl = URL.createObjectURL(blob);
+  waveformBase = null;
 }
 
 async function activateClip(id: string): Promise<void> {
@@ -432,6 +436,12 @@ function drawWaveform(playhead?: number): void {
   if (!canvas || !state.active || !state.buffer) return;
   const context = canvas.getContext("2d")!;
   const { width, height } = canvas;
+  if (playhead !== undefined && waveformBase) {
+    context.putImageData(waveformBase, 0, 0);
+    const x = (playhead / state.active.duration) * width;
+    context.fillStyle = "#ff7a68"; context.fillRect(x - 1, 0, 3, height);
+    return;
+  }
   const data = state.buffer.getChannelData(0);
   context.clearRect(0, 0, width, height);
   context.fillStyle = "#151d19";
@@ -453,6 +463,7 @@ function drawWaveform(playhead?: number): void {
   }
   context.strokeStyle = "#b9bdb2"; context.globalAlpha = 0.72; context.stroke(); context.globalAlpha = 1;
   context.fillStyle = "#c9ff48"; context.fillRect(aX, 0, 3, height); context.fillRect(bX - 3, 0, 3, height);
+  waveformBase = context.getImageData(0, 0, width, height);
   if (playhead !== undefined) {
     const x = (playhead / state.active.duration) * width;
     context.fillStyle = "#ff7a68"; context.fillRect(x - 1, 0, 3, height);

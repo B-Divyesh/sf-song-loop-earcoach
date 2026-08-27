@@ -1,5 +1,70 @@
 # Hookback v1 handoff
 
+## Repair 2 — release blockers repaired (2026-08-27)
+
+This repair addresses every finding in independent verification 2 for candidate
+`21ae3b7a394a5e9866ef7c8d46fcb8c53231c345` while retaining the passing
+local-first practice flow, offline shell, data export, privacy behavior, and
+visual system.
+
+- **Studio checkout:** production now defaults to
+  `https://api.sociobot.in/api/v1`; the old pilot endpoint is only selectable
+  through an explicit `VITE_BILLING_BASE` preview override. Direct checks found
+  the production checkout returns HTTP 303 and the former pilot URL returns
+  HTTP 404. Browser regression coverage asserts the exact visible production
+  checkout URL.
+- **Keyboard focus:** the three visually clipped file inputs now use
+  `tabindex="-1"`. Their named, visible buttons remain the keyboard entry
+  points and still invoke the same local file chooser. A desktop-and-mobile
+  Playwright regression tabs every sequential stop, proves each is visible,
+  and asserts all three hidden controls are absent from that sequence.
+- **Phrase boundary:** Hookback now accepts only 5–12 second decoded clips,
+  matching its stated practice unit. Shorter or longer files receive the clear
+  local recovery message “Choose a 5–12 second practice phrase…”. Browser
+  regression coverage exercises both a 0.8-second and a 12.5-second WAV; the
+  existing end-to-end import fixture is exactly five seconds.
+- **PWA release cache:** the service-worker cache is advanced to
+  `hookback-v3` and the installed-app start URL to `v=2`, so this release gets
+  a clean versioned app-shell cache while retaining the waiting-update flow.
+
+### Verification
+
+```sh
+npm ci
+npm test
+npm run build
+npm run test:e2e
+```
+
+- Fresh `npm ci`: passed, 0 vulnerabilities.
+- `npm test`: 7/7 Vitest tests passed; type checking is included in the build
+  because this static product has no separate lint script.
+- `npm run build`: passed and produced `dist/index.html`. The initial bundle is
+  30.94 KB JavaScript (11.42 KB gzip), 14.97 KB CSS (4.33 KB gzip), and the
+  first-screen WebP is 29.10 KB.
+- `npm run test:e2e`: 16/16 passed across real Chromium desktop (1440×1000)
+  and mobile (390×844). It covers import/persistence, MIDI comparison, empty
+  and populated axe serious/critical checks, full keyboard path, duration
+  limits, production checkout URL, offline reload, legal pages, and a real
+  waiting-worker update/activation.
+- `verify-url.sh` against a production build preview passed with no console or
+  page errors, title, `lang=en`, one h1, main landmark, and no missing image
+  alt text. Local Lighthouse mobile scored Performance 99, Accessibility 100,
+  Best Practices 100, and SEO 100 (FCP 1.0 s, LCP 1.6 s, TBT 120 ms, CLS 0).
+  Lighthouse emitted its known final screenshot/BFCache target-crash after
+  writing the report; the recorded scores are from that emitted report.
+- The response-policy unit tests continue to cover immutable asset caching,
+  worker/manifest revalidation and MIME type, CSP, and Permissions-Policy.
+  The browser privacy checks make no external request before an optional
+  license action; local clip and microphone handling remain unchanged.
+
+### Deployment
+
+The static `dist/` release is deployed to the existing Azure Static Web App
+`sf-song-loop-earcoach` after the repair commit is pushed. Live identity,
+headers, checkout redirect, and offline/update checks are recorded below once
+the deployment is active.
+
 ## Independent verification 2 — FAIL (2026-08-27)
 
 Candidate `21ae3b7a394a5e9866ef7c8d46fcb8c53231c345` was independently

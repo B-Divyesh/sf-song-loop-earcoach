@@ -1,5 +1,7 @@
 const SLUG = "song-loop-earcoach";
-const BASE = import.meta.env.VITE_BILLING_BASE || "https://pilot-api.sociobot.in/api/v1";
+// Releases point at the registered production product. Preview deployments can
+// opt into the pilot API explicitly with VITE_BILLING_BASE.
+const BASE = import.meta.env.VITE_BILLING_BASE || "https://api.sociobot.in/api/v1";
 const TOKEN_KEY = `sb_license:${SLUG}`;
 const VERDICT_KEY = `sb_license_verdict:${SLUG}`;
 const DAY = 86_400_000;

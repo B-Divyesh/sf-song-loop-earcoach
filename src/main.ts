@@ -43,6 +43,8 @@ const $ = <T extends HTMLElement>(selector: string) => document.querySelector<T>
 const escapeHtml = (value: string) => value.replace(/[&<>'"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[c]!);
 const formatTime = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}.${Math.floor((seconds % 1) * 10)}`;
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
+const MIN_CLIP_SECONDS = 5;
+const MAX_CLIP_SECONDS = 12;
 
 function getContext(): AudioContext {
   audioContext ??= new AudioContext();
@@ -80,7 +82,7 @@ function render(): void {
           <h1 id="page-title">Catch the hook<br><span>before it gets away.</span></h1>
           <p class="dek">Loop one phrase, play it back from memory, then see where your melodic shape bends. Everything stays on this device.</p>
           ${!clip ? `<button class="primary upload-button" id="clip-trigger"><span>Add a song clip</span><small>Audio files stay private</small></button>
-          <input id="clip-file" class="visually-hidden" type="file" aria-label="Choose an audio clip" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac" />` : ""}
+          <input id="clip-file" class="visually-hidden" type="file" tabindex="-1" aria-label="Choose an audio clip" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac" />` : ""}
         </div>
         ${!clip ? `<figure class="hero-art"><picture><source srcset="/assets/hookback-ribbon.webp" type="image/webp"><img src="/assets/hookback-ribbon.jpg" width="1152" height="768" alt="An angular paper ribbon folding back through three melodic contours" decoding="async" fetchpriority="high"></picture><figcaption>Hear it. Hold it. Hook it back.</figcaption></figure>` : ""}
       </section>
@@ -92,7 +94,7 @@ function render(): void {
       ${progressMarkup(attempts, dayCount, avg)}
       ${supportMarkup()}
     </main>
-    <footer><p>Made for patient ears. Your clips and recordings never leave this device.</p><nav aria-label="Legal"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><button class="text-button" id="export-data">Export my data</button><button class="text-button" id="import-trigger">Import backup</button></nav><input class="visually-hidden" id="import-data" type="file" accept="application/json" aria-label="Choose Hookback backup to import"><p class="generated-note">Abstract artwork generated for Hookback with the Factory image model.</p></footer>
+    <footer><p>Made for patient ears. Your clips and recordings never leave this device.</p><nav aria-label="Legal"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><button class="text-button" id="export-data">Export my data</button><button class="text-button" id="import-trigger">Import backup</button></nav><input class="visually-hidden" id="import-data" type="file" tabindex="-1" accept="application/json" aria-label="Choose Hookback backup to import"><p class="generated-note">Abstract artwork generated for Hookback with the Factory image model.</p></footer>
     <div id="update-toast" class="toast" role="status" aria-live="polite" ${state.updateReady ? "" : "hidden"}>Fresh version ready. <button id="apply-update" ${state.applyingUpdate ? "disabled" : ""}>${state.applyingUpdate ? "Updating…" : "Update"}</button></div>
   `;
   bindCommon();
@@ -102,7 +104,7 @@ function render(): void {
 
 function emptyMarkup(): string {
   return `<section class="empty-workbench" aria-labelledby="how-title">
-    <div><span class="step-no">01</span><h2 id="how-title">Choose a small moment</h2><p>Use a song file you already have. We recommend a clear 5–12 second phrase.</p></div>
+    <div><span class="step-no">01</span><h2 id="how-title">Choose a small moment</h2><p>Use a song file you already have. Choose a clear 5–12 second phrase.</p></div>
     <div><span class="step-no">02</span><h2>Sing or play it back</h2><p>Answer through your microphone or a connected MIDI keyboard.</p></div>
     <div><span class="step-no">03</span><h2>Compare the shape</h2><p>Get one achievable next hint—not a wall of theory.</p></div>
   </section>`;
@@ -153,7 +155,7 @@ function comparisonMarkup(): string {
 }
 
 function queueMarkup(): string {
-  return `<section class="queue-section" aria-labelledby="queue-title"><div class="section-heading"><div><p class="eyebrow">Practice queue</p><h2 id="queue-title">Hooks to bring back</h2></div><button class="secondary upload-small" id="queue-trigger">+ Add clip</button><input id="queue-file" class="visually-hidden" type="file" aria-label="Choose another audio clip" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac" /></div>
+  return `<section class="queue-section" aria-labelledby="queue-title"><div class="section-heading"><div><p class="eyebrow">Practice queue</p><h2 id="queue-title">Hooks to bring back</h2></div><button class="secondary upload-small" id="queue-trigger">+ Add clip</button><input id="queue-file" class="visually-hidden" type="file" tabindex="-1" aria-label="Choose another audio clip" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac" /></div>
     ${state.clips.length ? `<ul class="queue-list">${state.clips.map((item, index) => {
       const latest = item.attempts.at(-1); const active = item.id === state.active?.id;
       return `<li class="queue-item ${active ? "active" : ""}"><button class="queue-open" data-clip="${item.id}" ${active ? 'aria-current="true"' : ""}><span class="queue-index">${String(index + 1).padStart(2, "0")}</span><span><strong>${escapeHtml(item.name)}</strong><small>${formatTime(item.b - item.a)} loop · ${latest ? `${latest.score}% last match` : "New"}${item.pack ? ` · ${escapeHtml(item.pack)}` : ""}</small></span><span class="queue-arrow" aria-hidden="true">↗</span></button><button class="delete-clip" data-delete="${item.id}" aria-label="Remove ${escapeHtml(item.name)} from queue">×</button></li>`;
@@ -222,7 +224,11 @@ async function receiveFile(file?: File): Promise<void> {
   try {
     const bytes = await file.arrayBuffer();
     const buffer = await getContext().decodeAudioData(bytes.slice(0));
-    if (!Number.isFinite(buffer.duration) || buffer.duration < 0.7) throw new Error("too short");
+    if (!Number.isFinite(buffer.duration)) throw new Error("undecodable");
+    if (buffer.duration < MIN_CLIP_SECONDS || buffer.duration > MAX_CLIP_SECONDS) {
+      setAnnouncement("Choose a 5–12 second practice phrase so Hookback can make a useful loop.", true);
+      return;
+    }
     const a = 0;
     const b = Math.min(buffer.duration, 10);
     const clip: ClipRecord = {

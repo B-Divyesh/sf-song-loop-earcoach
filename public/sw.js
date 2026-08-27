@@ -1,4 +1,4 @@
-const VERSION = "hookback-v2";
+const VERSION = "hookback-v3";
 const SHELL = ["/", "/offline.html", "/manifest.webmanifest", "/assets/icon-192.png", "/assets/icon-512.png", "/assets/hookback-ribbon.webp", "/privacy/", "/terms/"];
 
 self.addEventListener("install", event => {

@@ -36,13 +36,14 @@ npm run preview
 ```
 
 The exact production build command is `npm run build`; deploy the generated
-`dist/` directory with `dist/index.html` at its root. To exercise Studio checkout
-on staging, the default billing endpoint is the Sociobot pilot API. Set
-`VITE_BILLING_BASE=https://api.sociobot.in/api/v1` for production registration.
+`dist/` directory with `dist/index.html` at its root. Production builds use the
+registered Sociobot API by default. For an explicitly configured staging build,
+set `VITE_BILLING_BASE=https://pilot-api.sociobot.in/api/v1`.
 
 Microphone and service-worker features require HTTPS (localhost is permitted).
-For a real test, import a 5–12 second WAV/MP3 phrase, adjust A/B, play it, record
-an answer, and confirm the queue and comparison survive a refresh. MIDI needs a
+For a real test, import a 5–12 second WAV/MP3 phrase (shorter and longer clips
+are rejected so the practice unit stays useful), adjust A/B, play it, record an
+answer, and confirm the queue and comparison survive a refresh. MIDI needs a
 browser with Web MIDI support and uses inputs only (`sysex: false`).
 
 ## Structure

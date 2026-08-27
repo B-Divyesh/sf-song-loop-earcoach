@@ -3,7 +3,7 @@
   "name": "Hookback — learn songs by ear",
   "short_name": "Hookback",
   "description": "Loop your own song clips, answer from memory, and compare melodic contour privately on your device.",
-  "start_url": "/?source=installed&v=1",
+  "start_url": "/?source=installed&v=2",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",

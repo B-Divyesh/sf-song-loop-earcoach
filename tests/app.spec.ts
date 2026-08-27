@@ -1,9 +1,8 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
-function wavFixture(): Buffer {
+function wavFixture(seconds = 5): Buffer {
   const sampleRate = 44_100;
-  const seconds = 3;
   const count = sampleRate * seconds;
   const buffer = Buffer.alloc(44 + count * 2);
   buffer.write("RIFF", 0); buffer.writeUInt32LE(36 + count * 2, 4); buffer.write("WAVEfmt ", 8);
@@ -65,6 +64,52 @@ test("empty screen has no serious accessibility violations", async ({ page }) =>
   await expect(page.getByRole("link", { name: "Hookback home" })).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(page.getByRole("button", { name: /Add a song clip/ })).toBeFocused();
+});
+
+test("keeps every sequential keyboard stop visible and routes file choice through visible controls", async ({ page }) => {
+  await page.goto("/");
+  const keyboardStops = [
+    page.getByRole("link", { name: "Skip to practice" }),
+    page.getByRole("link", { name: "Hookback home" }),
+    page.getByRole("button", { name: /Add a song clip/ }),
+    page.getByRole("button", { name: /Add clip/ }),
+    page.getByRole("link", { name: "Get Studio" }),
+    page.getByRole("button", { name: "Restore license" }),
+    page.getByRole("link", { name: "Privacy" }),
+    page.getByRole("link", { name: "Terms" }),
+    page.getByRole("button", { name: "Export my data" }),
+    page.getByRole("button", { name: "Import backup" })
+  ];
+
+  for (const stop of keyboardStops) {
+    await page.keyboard.press("Tab");
+    await expect(stop).toBeFocused();
+    await expect(stop).toBeVisible();
+    expect(await stop.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return rect.width > 1 && rect.height > 1 && style.visibility !== "hidden" && style.display !== "none";
+    })).toBe(true);
+  }
+
+  for (const input of ["#clip-file", "#queue-file", "#import-data"]) {
+    await expect(page.locator(input)).toHaveAttribute("tabindex", "-1");
+  }
+});
+
+test("uses the live billing endpoint and enforces the 5–12 second phrase policy", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("link", { name: "Get Studio" })).toHaveAttribute(
+    "href", "https://api.sociobot.in/api/v1/products/song-loop-earcoach/checkout"
+  );
+
+  await page.locator("#clip-file").setInputFiles({ name: "too-short.wav", mimeType: "audio/wav", buffer: wavFixture(0.8) });
+  await expect(page.getByRole("status")).toContainText("Choose a 5–12 second practice phrase");
+  await expect(page.getByRole("heading", { name: "Choose a small moment" })).toBeVisible();
+
+  await page.locator("#clip-file").setInputFiles({ name: "too-long.wav", mimeType: "audio/wav", buffer: wavFixture(12.5) });
+  await expect(page.getByRole("status")).toContainText("Choose a 5–12 second practice phrase");
+  await expect(page.getByRole("heading", { name: "Choose a small moment" })).toBeVisible();
 });
 
 test("app shell and saved route work offline", async ({ page, context }) => {

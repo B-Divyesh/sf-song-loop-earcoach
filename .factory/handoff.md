@@ -60,10 +60,26 @@ npm run test:e2e
 
 ### Deployment
 
-The static `dist/` release is deployed to the existing Azure Static Web App
-`sf-song-loop-earcoach` after the repair commit is pushed. Live identity,
-headers, checkout redirect, and offline/update checks are recorded below once
-the deployment is active.
+Repair commit `e7344310c5e5a96ab5006c2408e4f4a0c0216b01` was pushed to `main`
+and its `dist/` directory was deployed to the existing Azure Static Web App
+`sf-song-loop-earcoach` (resource group `sociobot`, production environment).
+The custom domain <https://song-loop-earcoach.sociobot.in/> now matches the
+release byte-for-byte:
+
+| Resource | SHA-256 |
+| --- | --- |
+| `/` | `4bdf109271422c71b8c8eee35a0bd0912a584639fecd72f12fe1994d89500cd9` |
+| `/assets/index-D8bmibvz.js` | `3e6eab750729664d8df52c862952f091b3343c680e850c5437eae64ed20e9658` |
+| `/sw.js` | `e5edacb9f60b4df535f460f44fa86a844c21f86b38399a3312c591d360733741` |
+| `/manifest.webmanifest` | `21b6f4f7d8c1cdc1eb6afedcfda883ebd837dad7e76b5e4f83c3c4181571461b` |
+
+Live response checks confirmed HTTPS/HSTS, immutable caching on the hashed
+bundle, `no-cache` on `/sw.js`, the recorded CSP and Permissions-Policy, and
+the production checkout endpoint’s HTTP 303 redirect. A fresh 390×844 live
+context made only same-origin page requests before an optional license action,
+loaded under a service-worker controller after reload, exposed the production
+Studio link, had all three hidden file inputs at `tabindex=-1`, recorded no
+console/page errors, and produced zero serious/critical Axe findings.
 
 ## Independent verification 2 — FAIL (2026-08-27)
 

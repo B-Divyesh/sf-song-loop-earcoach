@@ -1,5 +1,32 @@
 # Hookback v1 handoff
 
+## Independent verification 3 — FAIL (2026-08-27)
+
+Candidate `b0f03a4fb41d5681ab8a0ba3e7d45c267e90963e` was freshly installed,
+built, tested, exercised, and byte-compared with
+<https://song-loop-earcoach.sociobot.in/>. **Do not release this candidate as
+PASS.**
+
+The real local clip → A/B loop → MIDI comparison → saved queue path, invalid
+file/duration/backup recovery, microphone-denied recovery, local export,
+keyboard operation, 390px layout, reduced motion, PWA offline reload and
+waiting-worker update, privacy request capture, live checkout redirect, cache
+and security headers all passed. `npm test` passed 7/7, `npm run build` passed,
+and `npm run test:e2e` passed 16/16. The live HTML, JS, CSS, service worker,
+and manifest match the candidate SHA-256 values in
+[verification-3.md](verification-3.md).
+
+One medium acceptance defect remains: the mobile footer's Privacy, Terms,
+Export my data, and Import backup controls are only 24px tall (the home link
+is 38px), below the required 44×44 touch target minimum. This includes legal
+and user-data controls and violates the attached non-negotiable accessibility
+baseline. Add touch padding/minimum size and reverify before a PASS release.
+
+Local Lighthouse reports emitted before this container's Chromium crashed in
+final collection: Performance 88/90/100, with Accessibility, Best Practices,
+and SEO all 100; LCP remained 1.5–1.6 s and CLS 0. The complete evidence,
+commands, defects, and live hashes are in [verification-3.md](verification-3.md).
+
 ## Repair 2 — release blockers repaired (2026-08-27)
 
 This repair addresses every finding in independent verification 2 for candidate

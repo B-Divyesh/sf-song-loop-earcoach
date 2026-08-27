@@ -1,6 +1,6 @@
 # Hookback v1 handoff
 
-## Repair verification — ready to release locally (2026-08-27)
+## Repair verification — deployed and reverified (2026-08-27)
 
 This repair supersedes the **FAIL** disposition for candidate
 `48d81d6323e3a703d8f55a44c029173265698b10` in
@@ -95,6 +95,29 @@ Repair verification completed on 2026-08-27:
   worker/manifest caching, `application/manifest+json`, CSP, and
   Permissions-Policy. No analytics, CDN scripts, remote fonts, or tracking
   were added.
+
+## Production deployment evidence
+
+- Deployed `dist/` as static site `song-loop-earcoach` (Azure Static Web Apps
+  deployment `4e17f801-7ec2-4324-83bc-193fce2a7aba`) after pushing repair
+  commit `6b4cef670b021b8502221fc9c69d953756b042be`.
+- Live SHA-256 identity matched the built artifacts exactly: `/` and
+  `dist/index.html` `838b3dd34d839543c0cbe7321d2a6dbee14f288ad68af2ec17458c161b1a4f9a`;
+  `/assets/index-DphH74_g.js` and its built counterpart
+  `8ae8d20633be7d9a703a1664d3c3cbaed91b6ec835f61ec4b7cbc85fe8456348`;
+  `/sw.js` and `dist/sw.js`
+  `725db575452d8d8ead531e362906c899895e969365ed0dc2f132bbe454357c10`.
+- Live headers are `Cache-Control: public, max-age=31536000, immutable` for
+  the hashed JS; `no-cache` for `/sw.js` and the manifest; and
+  `Content-Type: application/manifest+json` for the manifest. The deployed
+  root sends the recorded CSP and `Permissions-Policy`.
+- `verify-url.sh https://song-loop-earcoach.sociobot.in/` passed with zero
+  console/page errors and the expected title, language, heading, main landmark,
+  and image alt text. Axe CLI against the live URL found 0 violations.
+- A fresh 390×844 live Chromium context installed the worker, reloaded under
+  control, simulated a changed worker URL, observed the visible update toast,
+  clicked **Update**, and confirmed the replacement controller. It emitted no
+  errors and requested only `https://song-loop-earcoach.sociobot.in`.
 
 ## Known limits and next steps
 

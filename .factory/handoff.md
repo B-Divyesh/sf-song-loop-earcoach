@@ -1,5 +1,105 @@
 # Hookback v1 handoff
 
+## Repair 3 — release blocker repaired and deployed (2026-08-28)
+
+This repair resolves the only release-blocking finding in independent
+verification 3 for candidate `b0f03a4fb41d5681ab8a0ba3e7d45c267e90963e`:
+the global/footer touch targets did not meet the required 44×44 CSS-pixel
+minimum. The original local clip → A/B loop → answer → comparison → saved
+queue behaviour, privacy model, visual thesis, and static PWA deployment class
+are unchanged.
+
+### Repair
+
+- The Skip to practice link, Hookback home link, and footer Privacy, Terms,
+  Export my data, and Import backup controls now have explicit 44px minimum
+  dimensions. Footer controls use inline-flex alignment and continue to wrap
+  at narrow widths instead of shrinking.
+- A browser regression test measures each of those six actual hit rectangles
+  and requires both width and height to be at least 44px. It runs in the
+  existing 1440×1000 desktop and 390×844 mobile Playwright projects.
+- The service-worker cache version advances from `hookback-v3` to
+  `hookback-v4`; the installed app start URL advances to `v=3`. Existing
+  installed copies therefore receive this CSS repair through the visible
+  waiting-worker update flow.
+
+Live measurements at both 1440×1000 and 390×844 are identical:
+
+| Target | Measured CSS size |
+| --- | --- |
+| Skip to practice | 156.95×44 |
+| Hookback home | 128.72×44 |
+| Privacy | 65.80×44 |
+| Terms | 56.50×44 |
+| Export my data | 122.27×44 |
+| Import backup | 115.70×44 |
+
+### Verification
+
+```sh
+npm ci
+npm test
+npm run build
+npm run test:e2e
+```
+
+- Fresh `npm ci` passed with 0 vulnerabilities.
+- `npm test` passed **7/7** Vitest tests, including response-policy coverage.
+- `npm run build` passed (`tsc --noEmit && vite build`) and produced
+  `dist/index.html`: initial JavaScript is 30.94 KB (11.42 KB gzip), CSS is
+  15.24 KB (4.35 KB gzip), well within the static-PWA budgets.
+- `npm run test:e2e` passed **18/18** Chromium checks across desktop and
+  390px mobile: the real import/persistence and MIDI path, duration recovery,
+  keyboard order/visible focus, exact touch-target regression, legal routes,
+  empty/populated Axe serious/critical scan, offline reload, and a waiting
+  service-worker update.
+- `verify-url.sh` against local preview and the live deployment passed: title,
+  `lang=en`, one h1, main landmark, image alt text, named buttons, and zero
+  console/page errors. The project’s Playwright Axe integration passed with
+  zero serious/critical violations. The standalone Axe CLI could not locate a
+  Chrome binary in this container; it was not treated as a substitute for the
+  passing browser integration.
+- Local mobile Lighthouse emitted Performance **100**, Accessibility **100**,
+  Best Practices **100**, SEO **100**; FCP 1.0 s, LCP 1.6 s, TBT 50 ms, CLS 0.
+  As in the verifier environment, Lighthouse then exited non-zero after writing
+  its report because the final BFCache collection tab crashed.
+- A live 1440px and 390px check found no horizontal overflow, no browser
+  errors, same-origin-only initial requests (no analytics/CDN/upload traffic),
+  service-worker-controlled offline reload, and all six targets at or above
+  44×44. A controlled live worker registration showed the update toast; Update
+  activated the replacement worker and reloaded successfully.
+
+### Deployment and identity
+
+Repair commit `7e8ee7ebce00feb66732fefdbba47640d41d058b` was pushed to
+`main` and `dist/` was deployed with Azure Static Web Apps CLI to production
+app `sf-song-loop-earcoach` in resource group `sociobot`.
+
+The custom domain <https://song-loop-earcoach.sociobot.in/> exactly matches
+the produced artifacts:
+
+| Resource | SHA-256 |
+| --- | --- |
+| `/` | `c9a720fbdd08a428ad1ab34ab3b28cb814963420d149294c525636c0b2f8efa2` |
+| `/assets/index-CECmo6YL.js` | `3e6eab750729664d8df52c862952f091b3343c680e850c5437eae64ed20e9658` |
+| `/assets/index-CYHkUulu.css` | `877396695469bbfa2e1a1ae3e21f09acd8d8c99430849870f35e7ff7c7fa9521` |
+| `/sw.js` | `617520ef63b3a75a1324e52f096d16f1d9c0d24b17681204459f87013690fc44` |
+| `/manifest.webmanifest` | `b080e61f08958479e340d1d58744e2dfa09ed00742a9cd532d73ed0c647037e8` |
+
+Live responses retain HTTPS/HSTS, the self-restricted CSP, scoped
+microphone/MIDI Permissions-Policy, `nosniff`, and Referrer-Policy. The
+hashed bundle remains `public, max-age=31536000, immutable`; the worker and
+manifest remain `no-cache`, and the manifest remains
+`application/manifest+json`.
+
+### Known limits
+
+- Pitch estimation remains intentionally monophonic; dense/polyphonic clips,
+  heavy drums, and room noise lower confidence as described in-product.
+- Physical microphone and MIDI hardware still require a compatible browser and
+  device permission. The browser MIDI and microphone-denied paths are covered
+  without claiming hardware automation.
+
 ## Independent verification 3 — FAIL (2026-08-27)
 
 Candidate `b0f03a4fb41d5681ab8a0ba3e7d45c267e90963e` was freshly installed,

@@ -1,5 +1,33 @@
 # Hookback v1 handoff
 
+## Independent verification 4 — PASS (2026-08-28)
+
+Candidate **`723c830b530876ff150c35e4f5347fc966838d3b`** is a release **PASS**
+at <https://song-loop-earcoach.sociobot.in/>. Fresh local build artifacts and
+the deployed HTML, JS, CSS, service worker, and manifest match byte-for-byte.
+No critical, high, medium, or low product defects are open from this
+verification.
+
+Fresh evidence: clean `npm ci` (0 vulnerabilities), `npm test` (7/7), exact
+`npm run build`, and `npm run test:e2e` (18/18) all passed. Independent
+desktop and 390px Chromium journeys covered local WAV import, loop state,
+MIDI comparison, visible microphone recording and denied-permission recovery,
+invalid audio/backup recovery, real backup export/import, keyboard focus,
+reduced motion, no serious/critical Axe findings, no console/page errors,
+same-origin-only initial requests, offline reload, and service-worker control.
+The suite separately verifies the waiting-worker update flow.
+
+Budgets are 30.94 KB JS / 15.24 KB CSS before gzip. Repeated mobile
+Lighthouse reports emitted 97 and 100 performance plus 100 accessibility,
+best-practices, and SEO (one cold 88 score accompanied the container’s known
+post-report Chromium screenshot/BFCache crash; LCP remained 1.5–1.6 s and CLS
+0). HTTPS/HSTS, CSP, Permissions-Policy, immutable hashed-asset caching,
+revalidatable SW/manifest caching, and manifest MIME type were confirmed live.
+
+See [verification-4.md](verification-4.md) for commands, exact hash evidence,
+scope, and the runner limitation. Re-run with `npm ci && npm test && npm run
+build && npm run test:e2e`; preview the built app with `npm run preview`.
+
 ## Repair 3 — release blocker repaired and deployed (2026-08-28)
 
 This repair resolves the only release-blocking finding in independent

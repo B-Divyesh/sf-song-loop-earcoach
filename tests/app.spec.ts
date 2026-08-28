@@ -97,6 +97,26 @@ test("keeps every sequential keyboard stop visible and routes file choice throug
   }
 });
 
+test("keeps global and footer touch targets at least 44px in each dimension", async ({ page }) => {
+  await page.goto("/");
+  const touchTargets = [
+    page.getByRole("link", { name: "Skip to practice" }),
+    page.getByRole("link", { name: "Hookback home" }),
+    page.getByRole("link", { name: "Privacy" }),
+    page.getByRole("link", { name: "Terms" }),
+    page.getByRole("button", { name: "Export my data" }),
+    page.getByRole("button", { name: "Import backup" })
+  ];
+
+  for (const target of touchTargets) {
+    await expect(target).toBeVisible();
+    expect(await target.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      return rect.width >= 44 && rect.height >= 44;
+    })).toBe(true);
+  }
+});
+
 test("uses the live billing endpoint and enforces the 5–12 second phrase policy", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("link", { name: "Get Studio" })).toHaveAttribute(

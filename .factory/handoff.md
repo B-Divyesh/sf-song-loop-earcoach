@@ -1,5 +1,30 @@
 # Hookback v1 handoff
 
+## Review 1 — FAIL (2026-09-06)
+
+Independent review of implementation
+`7e8ee7ebce00feb66732fefdbba47640d41d058b` and pre-review documentation
+`f1ca8592aef8b6166f821b6dec15d25797dc1176` found **6 findings and 11
+untested public claims**. Production matches the implementation build
+byte-for-byte. See [review-1.md](review-1.md) for full evidence.
+
+The main functional defect is false pitch feedback: a clean 440 Hz → 493.88 Hz
+clip was stored as MIDI 41.14 → 47.01 instead of 69 → 71, and the matching MIDI
+answer was reported about 2,399 cents high. The mandatory one-click demo and
+isolated sample namespace are absent. `.factory/claims.json`,
+`.factory/demo.md`, and `.factory/copy-audit.md` are absent; the first-screen
+copy is metaphorical and does not name the audience; unknown routes return the
+home app with HTTP 200; and required navigation, footer, canonical/social
+metadata, and route coverage are incomplete.
+
+The prior update, cache, response-header, checkout, keyboard, duration, and
+touch-target findings remain repaired. Fresh `npm ci`, `npm test` (7/7),
+`npm run build`, and `npm run test:e2e` (18/18) passed. Independent live checks
+also passed offline reload/update, invalid-input recovery, export, persistence,
+same-origin request capture, Axe serious/critical scans, keyboard/focus/touch,
+and mobile Lighthouse (99 performance, 100 accessibility, 100 best practices,
+100 SEO). No product code was changed during this review.
+
 ## Independent verification 4 — PASS (2026-08-28)
 
 Candidate **`723c830b530876ff150c35e4f5347fc966838d3b`** is a release **PASS**

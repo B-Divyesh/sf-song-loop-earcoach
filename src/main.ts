@@ -748,31 +748,4 @@ async function init(): Promise<void> {
   render();
 }
 
-async function restoreAfterHistoryNavigation(): Promise<void> {
-  try {
-    if (state.demo) {
-      await loadDemo();
-    } else {
-      state.clips = await listClips();
-      const restoredActive = state.active ? state.clips.find(clip => clip.id === state.active?.id) || null : null;
-      state.active = restoredActive;
-      if (!restoredActive) {
-        state.buffer = null;
-        state.comparison = null;
-        state.answer = [];
-        if (objectUrl) URL.revokeObjectURL(objectUrl);
-        objectUrl = "";
-      }
-    }
-    state.error = "";
-  } catch {
-    state.error = "Saved practice could not be restored. Reload this page to try again.";
-  }
-  render();
-}
-
-window.addEventListener("pageshow", event => {
-  if (event.persisted) void restoreAfterHistoryNavigation();
-});
-
 void init();

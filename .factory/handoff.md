@@ -1,4 +1,31 @@
-# Hookback verification 5 handoff
+# Hookback review 2 handoff
+
+## Strict review 2
+
+Review 2 inspected implementation
+`4b5b9a91891a2fb512a8546864ba9a81938f6900` at live URL
+<https://song-loop-earcoach.sociobot.in/>. The documentation base was
+`d8d294fd7063d54c9602e11c4ccfc1527f26ac3c`. No product code was changed.
+
+The result is **FAIL: 2 findings and 2 untested claims**. The product behavior
+itself passed the fresh desktop, phone, demo isolation, reset, exact pitch,
+normal/error/boundary/recovery, keyboard, accessibility, offline, update,
+route, legal, link, checkout, header, deployment-identity, and performance
+checks. Live Lighthouse scored 100 in all four categories.
+
+The remaining work is in the claims suite:
+
+1. Extend `@claim:free-studio-split` to operate free playback/export, follow or
+   fixture the checkout, return a valid fixture license, save a named pack, and
+   assert the progress view.
+2. Extend `@claim:clip-duration` to accept an exact 12.000-second fixture, not
+   only reject 12.5 seconds.
+
+The full report is `.factory/review-2.md`. Evidence is under
+`/work/.evidence/review-2/`. The live product and current clean build match
+byte for byte. Do not redeploy product code for this report-only commit.
+
+## Previous verification 5 handoff
 
 ## Independent verification 5
 

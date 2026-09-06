@@ -125,9 +125,33 @@ test("legal pages are direct, semantic routes", async ({ page }) => {
 });
 
 test("metadata and the designed not-found page identify their routes", async ({ page }) => {
+  await page.goto("/");
+  await expect(page).toHaveTitle("Hookback — learn short song phrases by ear");
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", /Loop a short song phrase/);
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", "https://song-loop-earcoach.sociobot.in/assets/hookback-social.jpg");
+  await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute("content", "summary_large_image");
+  await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute("href", "/assets/apple-touch-icon.png");
+  expect(await page.evaluate(() => new Promise(resolve => {
+    const image = new Image();
+    image.onload = () => resolve([image.naturalWidth, image.naturalHeight]);
+    image.src = "/assets/hookback-social.jpg";
+  }))).toEqual([1200, 630]);
+  await expect(page.locator(".site-nav")).toContainText("Demo");
+  await expect(page.locator("footer")).toContainText("Built by Param Factory · v1.1.0 · build repair-4");
+
   await page.goto("/demo");
   await expect(page).toHaveTitle("Demo — Hookback");
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://song-loop-earcoach.sociobot.in/demo");
+
+  await page.goto("/privacy/");
+  await expect(page).toHaveTitle("Privacy — Hookback");
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://song-loop-earcoach.sociobot.in/privacy/");
+  await expect(page.locator("footer")).toContainText("Built by Param Factory");
+
+  await page.goto("/terms/");
+  await expect(page).toHaveTitle("Terms — Hookback");
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://song-loop-earcoach.sociobot.in/terms/");
+
   const response = await page.goto("/not-a-real-hookback-route");
   expect(response?.status()).toBe(404);
   await expect(page).toHaveTitle("Page not found — Hookback");

@@ -1,7 +1,8 @@
 {
-  "navigationFallback": {
-    "rewrite": "/index.html",
-    "exclude": ["/assets/*", "/*.{css,js,png,jpg,svg,webp,ico,woff2,json,txt,xml,wasm}"]
+  "responseOverrides": {
+    "404": {
+      "rewrite": "/404.html"
+    }
   },
   "globalHeaders": {
     "Cache-Control": "public, max-age=0, must-revalidate",
@@ -11,6 +12,10 @@
     "X-Content-Type-Options": "nosniff"
   },
   "routes": [
+    {
+      "route": "/demo",
+      "rewrite": "/index.html"
+    },
     {
       "route": "/assets/*",
       "headers": {

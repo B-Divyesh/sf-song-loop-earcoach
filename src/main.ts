@@ -1,6 +1,6 @@
 import "./styles.css";
 import { comparePitchTracks, extractPitchTrack, noteName } from "./audio";
-import { clearClips, deleteClip, listClips, saveClip } from "./db";
+import { clearClips, deleteClip, listClips, saveClip, setDatabaseMode } from "./db";
 import { captureAndVerifyLicense, checkoutUrl, optimisticallyUnlocked, readLicense, removeLicense, saveLicense } from "./license";
 import type { Attempt, ClipRecord, Comparison } from "./types";
 
@@ -19,12 +19,18 @@ type State = {
   licenseNote: string;
   updateReady: boolean;
   applyingUpdate: boolean;
+  demo: boolean;
 };
+
+const routeQuery = new URLSearchParams(location.search);
+const DEMO_MODE = location.pathname.replace(/\/+$/, "") === "/demo" || routeQuery.get("demo") === "1";
+setDatabaseMode(DEMO_MODE ? "demo" : "real");
 
 const state: State = {
   clips: [], active: null, buffer: null, busy: true, recording: false,
   mode: "microphone", comparison: null, answer: [], message: "", error: "",
-  unlocked: optimisticallyUnlocked(), licenseNote: "", updateReady: false, applyingUpdate: false
+  unlocked: DEMO_MODE ? false : optimisticallyUnlocked(), licenseNote: "", updateReady: false,
+  applyingUpdate: false, demo: DEMO_MODE
 };
 
 let objectUrl = "";
@@ -45,6 +51,70 @@ const formatTime = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Ma
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
 const MIN_CLIP_SECONDS = 5;
 const MAX_CLIP_SECONDS = 12;
+const BUILD_LABEL = "v1.1.0 · build repair-4";
+
+function createDemoAudio(): Blob {
+  const sampleRate = 16_000;
+  const seconds = 8;
+  const frequencies = [220, 277.18, 329.63, 277.18, 246.94, 220];
+  const sampleCount = sampleRate * seconds;
+  const bytes = new ArrayBuffer(44 + sampleCount * 2);
+  const view = new DataView(bytes);
+  const writeText = (offset: number, value: string) => [...value].forEach((character, index) => view.setUint8(offset + index, character.charCodeAt(0)));
+  writeText(0, "RIFF"); view.setUint32(4, 36 + sampleCount * 2, true); writeText(8, "WAVEfmt ");
+  view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true); view.setUint16(34, 16, true); writeText(36, "data"); view.setUint32(40, sampleCount * 2, true);
+  for (let index = 0; index < sampleCount; index += 1) {
+    const progress = index / sampleCount;
+    const noteIndex = Math.min(frequencies.length - 1, Math.floor(progress * frequencies.length));
+    const phase = (progress * frequencies.length) % 1;
+    const edge = Math.min(1, phase * 18, (1 - phase) * 18);
+    const sample = Math.sin(2 * Math.PI * frequencies[noteIndex] * index / sampleRate) * 0.5 * edge;
+    view.setInt16(44 + index * 2, Math.round(sample * 32767), true);
+  }
+  return new Blob([bytes], { type: "audio/wav" });
+}
+
+async function seedDemo(): Promise<void> {
+  const blob = createDemoAudio();
+  const buffer = await getContext().decodeAudioData(await blob.arrayBuffer());
+  const targetPitches = extractPitchTrack(buffer);
+  const answerPitches = targetPitches.map((note, index) => note + (index % 9 === 0 ? 0.12 : 0));
+  const comparison = comparePitchTracks(targetPitches, answerPitches);
+  const now = Date.now();
+  const clip: ClipRecord = {
+    id: "demo-four-note-phrase", name: "Four-note guitar phrase", type: "audio/wav", blob,
+    duration: buffer.duration, createdAt: now, updatedAt: now, a: 0, b: buffer.duration,
+    targetPitches, attempts: [{
+      id: "demo-answer", at: now, mode: "microphone", score: comparison.score,
+      contourScore: comparison.contourScore, medianCents: comparison.medianCents,
+      answerPitches
+    }], nextDue: now + 86_400_000
+  };
+  await saveClip(clip);
+}
+
+async function loadDemo(reset = false): Promise<void> {
+  stopLoop();
+  if (reset) await clearClips();
+  let clips = await listClips();
+  if (!clips.length) {
+    await seedDemo();
+    clips = await listClips();
+  }
+  const clip = clips[0];
+  const buffer = await getContext().decodeAudioData(await clip.blob.arrayBuffer());
+  const answer = clip.attempts.at(-1)?.answerPitches || [];
+  state.clips = clips;
+  state.active = clip;
+  state.buffer = buffer;
+  state.answer = answer;
+  state.comparison = comparePitchTracks(clip.targetPitches, answer);
+  state.error = "";
+  state.message = reset ? "Demo reset to the original sample." : "Sample practice is ready.";
+  setObjectUrl(clip.blob);
+}
 
 function getContext(): AudioContext {
   audioContext ??= new AudioContext();
@@ -65,26 +135,45 @@ function activeAttempts(): Attempt[] {
   return state.clips.flatMap(clip => clip.attempts);
 }
 
+function setRouteMetadata(): void {
+  const title = state.demo ? "Demo — Hookback" : "Hookback — learn short song phrases by ear";
+  const description = state.demo
+    ? "Try a sample song phrase, answer, and pitch comparison without changing your saved practice."
+    : "Loop a short song phrase, answer from memory, and compare pitch shape on your device.";
+  document.title = title;
+  document.querySelector<HTMLMetaElement>('meta[name="description"]')?.setAttribute("content", description);
+  document.querySelector<HTMLMetaElement>('meta[property="og:title"]')?.setAttribute("content", title);
+  document.querySelector<HTMLMetaElement>('meta[property="og:description"]')?.setAttribute("content", description);
+  document.querySelector<HTMLMetaElement>('meta[name="twitter:title"]')?.setAttribute("content", title);
+  document.querySelector<HTMLMetaElement>('meta[name="twitter:description"]')?.setAttribute("content", description);
+  document.querySelector<HTMLMetaElement>('meta[property="og:url"]')?.setAttribute("content", `https://song-loop-earcoach.sociobot.in${state.demo ? "/demo" : "/"}`);
+  document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.setAttribute("href", `https://song-loop-earcoach.sociobot.in${state.demo ? "/demo" : "/"}`);
+}
+
 function render(): void {
+  setRouteMetadata();
   const clip = state.active;
   const attempts = activeAttempts();
   const dayCount = new Set(attempts.map(a => new Date(a.at).toDateString())).size;
   const avg = attempts.length ? Math.round(attempts.reduce((sum, a) => sum + a.score, 0) / attempts.length) : 0;
   app.innerHTML = `
+    ${state.demo ? `<div class="demo-banner" role="status"><strong>Demo — sample data, nothing is saved</strong><span>Changes stay separate from your practice.</span><div><button id="reset-demo">Reset demo</button><a href="/" id="start-real">Start for real</a></div></div>` : ""}
     <header class="site-header">
       <a class="wordmark" href="/" aria-label="Hookback home"><span class="mark" aria-hidden="true">↩</span> Hookback</a>
-      <div class="header-state"><span class="offline-dot" aria-hidden="true"></span><span id="network-label">${navigator.onLine ? "Local mode" : "Offline · still working"}</span></div>
+      <nav class="site-nav" aria-label="Main navigation"><a href="/demo">Demo</a><a href="/#how-it-works">How it works</a><a href="/privacy/">Privacy</a></nav>
+      <div class="header-state"><span class="offline-dot" aria-hidden="true"></span><span id="network-label">${navigator.onLine ? "On-device mode" : "Offline · app is ready"}</span></div>
     </header>
     <main id="main">
       <section class="intro ${clip ? "intro-compact" : ""}" aria-labelledby="page-title">
         <div class="intro-copy">
-          <p class="eyebrow">Your song. Your ear. No upload.</p>
-          <h1 id="page-title">Catch the hook<br><span>before it gets away.</span></h1>
-          <p class="dek">Loop one phrase, play it back from memory, then see where your melodic shape bends. Everything stays on this device.</p>
-          ${!clip ? `<button class="primary upload-button" id="clip-trigger"><span>Add a song clip</span><small>Audio files stay private</small></button>
+          <p class="eyebrow">Private song practice</p>
+          <h1 id="page-title">Learn short song phrases by ear</h1>
+          <p class="dek">For self-taught instrumentalists who want to play songs from memory, one short phrase at a time.</p>
+          ${!clip ? `<div class="first-actions"><a class="primary" href="/demo">Try it with sample data</a><span>See a filled practice loop and pitch comparison.</span><button class="secondary own-upload" id="clip-trigger"><span>Add your own clip</span><small>Choose a 5–12 second audio file</small></button></div>
           <input id="clip-file" class="visually-hidden" type="file" tabindex="-1" aria-label="Choose an audio clip" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac" />` : ""}
+          <ul class="plain-facts" aria-label="Product facts"><li><strong>Private:</strong> audio stays on this device.</li><li><strong>Offline:</strong> practice works after your first visit.</li><li><strong>Price:</strong> core practice stays free.</li></ul>
         </div>
-        ${!clip ? `<figure class="hero-art"><picture><source srcset="/assets/hookback-ribbon.webp" type="image/webp"><img src="/assets/hookback-ribbon.jpg" width="1152" height="768" alt="An angular paper ribbon folding back through three melodic contours" decoding="async" fetchpriority="high"></picture><figcaption>Hear it. Hold it. Hook it back.</figcaption></figure>` : ""}
+        ${!clip ? `<figure class="hero-art"><picture><source srcset="/assets/hookback-ribbon.webp" type="image/webp"><img src="/assets/hookback-ribbon.jpg" width="1152" height="768" alt="An angular paper ribbon shows a short melody returning to its start" decoding="async" fetchpriority="high"></picture><figcaption>Listen, answer, then compare.</figcaption></figure>` : ""}
       </section>
 
       <div id="live-status" class="${state.error ? "status error" : "status"}" role="status" aria-live="polite">${escapeHtml(state.error || state.message)}</div>
@@ -94,7 +183,7 @@ function render(): void {
       ${progressMarkup(attempts, dayCount, avg)}
       ${supportMarkup()}
     </main>
-    <footer><p>Made for patient ears. Your clips and recordings never leave this device.</p><nav aria-label="Legal"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><button class="text-button" id="export-data">Export my data</button><button class="text-button" id="import-trigger">Import backup</button></nav><input class="visually-hidden" id="import-data" type="file" tabindex="-1" accept="application/json" aria-label="Choose Hookback backup to import"><p class="generated-note">Abstract artwork generated for Hookback with the Factory image model.</p></footer>
+    <footer><p>Loop short song phrases and compare your answer on this device.</p><nav aria-label="Legal and data"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><button class="text-button" id="export-data">Export my data</button><button class="text-button" id="import-trigger">Import backup</button></nav><input class="visually-hidden" id="import-data" type="file" tabindex="-1" accept="application/json" aria-label="Choose Hookback backup to import"><p class="factory-note">Built by Param Factory · ${BUILD_LABEL}</p><p class="generated-note">The abstract artwork was generated for Hookback with the Factory image model.</p></footer>
     <div id="update-toast" class="toast" role="status" aria-live="polite" ${state.updateReady ? "" : "hidden"}>Fresh version ready. <button id="apply-update" ${state.applyingUpdate ? "disabled" : ""}>${state.applyingUpdate ? "Updating…" : "Update"}</button></div>
   `;
   bindCommon();
@@ -103,20 +192,22 @@ function render(): void {
 }
 
 function emptyMarkup(): string {
-  return `<section class="empty-workbench" aria-labelledby="how-title">
-    <div><span class="step-no">01</span><h2 id="how-title">Choose a small moment</h2><p>Use a song file you already have. Choose a clear 5–12 second phrase.</p></div>
-    <div><span class="step-no">02</span><h2>Sing or play it back</h2><p>Answer through your microphone or a connected MIDI keyboard.</p></div>
-    <div><span class="step-no">03</span><h2>Compare the shape</h2><p>Get one achievable next hint—not a wall of theory.</p></div>
+  return `<section class="how-section" id="how-it-works" aria-labelledby="how-title"><h2 id="how-title">How it works</h2><div class="empty-workbench">
+    <div><span class="step-no">01</span><h3>Choose a short phrase</h3><p>Use a song file you already have. Hookback accepts clips from 5 to 12 seconds.</p></div>
+    <div><span class="step-no">02</span><h3>Answer from memory</h3><p>Sing or play through your microphone. You can also use a connected MIDI keyboard.</p></div>
+    <div><span class="step-no">03</span><h3>Compare pitch and shape</h3><p>See the pitch distance, the melodic shape, and one next step.</p></div>
+  </div>
   </section>`;
 }
 
 function practiceMarkup(clip: ClipRecord): string {
   const duration = clip.duration.toFixed(2);
-  return `<section class="workbench" aria-label="Practice workbench">
-    <div class="clip-heading"><div><p class="eyebrow">Now looping</p><h2>${escapeHtml(clip.name)}</h2></div><button id="change-clip" class="secondary">Choose another</button></div>
+  return `<section class="workbench" aria-labelledby="practice-title">
+    <div class="clip-heading"><div><p class="eyebrow">Selected practice clip</p><h2 id="practice-title">${escapeHtml(clip.name)}</h2></div><button id="change-clip" class="secondary">Choose another clip</button></div>
+    ${state.demo && state.comparison ? `<div class="demo-result" aria-label="Sample result"><span>Sample answer</span><strong>${state.comparison.score}% match</strong><span>${state.comparison.contourScore}% pitch shape · ${Math.abs(state.comparison.medianCents || 0)} cents from the clip</span></div>` : ""}
     <div class="stage-grid">
       <section class="stage listen-stage" aria-labelledby="listen-title">
-        <header><span class="step-no">01</span><div><p class="stage-kicker">Listen</p><h2 id="listen-title">Cut the phrase</h2></div></header>
+        <header><span class="step-no">01</span><div><p class="stage-kicker">Listen</p><h3 id="listen-title">Choose the loop</h3></div></header>
         <canvas id="waveform" width="960" height="180" role="img" aria-label="Waveform showing the selected loop region"></canvas>
         <audio id="clip-audio" src="${objectUrl}" preload="metadata"></audio>
         <div class="range-labels"><output id="a-label" for="range-a">A · ${formatTime(clip.a)}</output><output id="b-label" for="range-b">B · ${formatTime(clip.b)}</output></div>
@@ -127,7 +218,7 @@ function practiceMarkup(clip: ClipRecord): string {
         <div class="button-row"><button id="play-loop" class="primary"><span aria-hidden="true">▶</span> Play loop</button><button id="stop-loop" class="secondary"><span aria-hidden="true">■</span> Stop</button><span class="loop-length">${(clip.b - clip.a).toFixed(1)} sec</span></div>
       </section>
       <section class="stage answer-stage" aria-labelledby="answer-title">
-        <header><span class="step-no">02</span><div><p class="stage-kicker">Answer</p><h2 id="answer-title">Hook it back</h2></div></header>
+        <header><span class="step-no">02</span><div><p class="stage-kicker">Answer</p><h3 id="answer-title">Play it from memory</h3></div></header>
         <div class="mode-switch" role="group" aria-label="Answer input">
           <button class="mode ${state.mode === "microphone" ? "active" : ""}" data-mode="microphone" aria-pressed="${state.mode === "microphone"}">Microphone</button>
           <button class="mode ${state.mode === "midi" ? "active" : ""}" data-mode="midi" aria-pressed="${state.mode === "midi"}">MIDI</button>
@@ -136,7 +227,7 @@ function practiceMarkup(clip: ClipRecord): string {
         <div class="button-row">${!state.recording ? `<button id="record-start" class="record-button"><span class="record-dot" aria-hidden="true"></span> ${state.mode === "microphone" ? "Record answer" : "Start MIDI answer"}</button>` : `<button id="record-stop" class="stop-button"><span aria-hidden="true">■</span> Finish answer</button>`}<span class="privacy-note">${state.mode === "microphone" ? "Recorded locally" : "Read-only note input"}</span></div>
       </section>
       <section class="stage compare-stage ${state.comparison ? "has-result" : ""}" aria-labelledby="compare-title">
-        <header><span class="step-no">03</span><div><p class="stage-kicker">Compare</p><h2 id="compare-title">See the turn</h2></div></header>
+        <header><span class="step-no">03</span><div><p class="stage-kicker">Compare</p><h3 id="compare-title">Compare pitch and shape</h3></div></header>
         ${comparisonMarkup()}
       </section>
     </div>
@@ -144,10 +235,10 @@ function practiceMarkup(clip: ClipRecord): string {
 }
 
 function comparisonMarkup(): string {
-  if (!state.comparison || !state.active) return `<div class="waiting"><div class="waiting-lines" aria-hidden="true"><i></i><i></i><i></i></div><p>Your clip and answer contours will meet here.</p></div>`;
+  if (!state.comparison || !state.active) return `<div class="waiting"><div class="waiting-lines" aria-hidden="true"><i></i><i></i><i></i></div><p>Your pitch comparison will appear here after an answer.</p></div>`;
   const c = state.comparison;
   const cents = c.medianCents === null ? "Pitch center unavailable" : `${Math.abs(c.medianCents)}¢ ${c.direction === "centered" ? "from center" : c.direction}`;
-  return `<div class="score-block"><div class="score-ring" style="--score:${c.score * 3.6}deg"><span><strong>${c.score}</strong><small>match</small></span></div><div><p class="result-label">${c.score >= 75 ? "Hook held" : c.score >= 45 ? "Shape emerging" : "One turn at a time"}</p><p>${c.contourScore}% contour · ${cents}</p></div></div>
+  return `<div class="score-block"><div class="score-ring" style="--score:${c.score * 3.6}deg"><span><strong>${c.score}</strong><small>match</small></span></div><div><p class="result-label">${c.score >= 75 ? "Close match" : c.score >= 45 ? "Partial match" : "Try another answer"}</p><p>${c.contourScore}% pitch shape · ${cents}</p></div></div>
     <canvas id="contour" width="600" height="190" role="img" aria-label="Overlay of the clip contour and your answer contour"></canvas>
     <div class="legend"><span class="clip-key">Clip</span><span class="answer-key">Your answer</span></div>
     <aside class="hint"><span aria-hidden="true">→</span><div><strong>Try this next</strong><p>${escapeHtml(c.hint)}</p></div></aside>
@@ -155,22 +246,22 @@ function comparisonMarkup(): string {
 }
 
 function queueMarkup(): string {
-  return `<section class="queue-section" aria-labelledby="queue-title"><div class="section-heading"><div><p class="eyebrow">Practice queue</p><h2 id="queue-title">Hooks to bring back</h2></div><button class="secondary upload-small" id="queue-trigger">+ Add clip</button><input id="queue-file" class="visually-hidden" type="file" tabindex="-1" aria-label="Choose another audio clip" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac" /></div>
+  return `<section class="queue-section" aria-labelledby="queue-title"><div class="section-heading"><div><p class="eyebrow">Practice queue</p><h2 id="queue-title">Saved practice clips</h2></div><button class="secondary upload-small" id="queue-trigger">Add a clip</button><input id="queue-file" class="visually-hidden" type="file" tabindex="-1" aria-label="Choose another audio clip" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac" /></div>
     ${state.clips.length ? `<ul class="queue-list">${state.clips.map((item, index) => {
       const latest = item.attempts.at(-1); const active = item.id === state.active?.id;
       return `<li class="queue-item ${active ? "active" : ""}"><button class="queue-open" data-clip="${item.id}" ${active ? 'aria-current="true"' : ""}><span class="queue-index">${String(index + 1).padStart(2, "0")}</span><span><strong>${escapeHtml(item.name)}</strong><small>${formatTime(item.b - item.a)} loop · ${latest ? `${latest.score}% last match` : "New"}${item.pack ? ` · ${escapeHtml(item.pack)}` : ""}</small></span><span class="queue-arrow" aria-hidden="true">↗</span></button><button class="delete-clip" data-delete="${item.id}" aria-label="Remove ${escapeHtml(item.name)} from queue">×</button></li>`;
-    }).join("")}</ul>` : `<div class="queue-empty"><p>No saved hooks yet.</p><span>Add a clip above—your queue is stored only in this browser.</span></div>`}
+    }).join("")}</ul>` : `<div class="queue-empty"><p>No saved clips yet.</p><span>Add a clip to build a practice queue in this browser.</span></div>`}
   </section>`;
 }
 
 function progressMarkup(attempts: Attempt[], days: number, avg: number): string {
-  if (!state.unlocked) return `<section class="upgrade" aria-labelledby="upgrade-title"><div><p class="eyebrow">Hookback Studio · $19 once</p><h2 id="upgrade-title">Keep practice packs. See the long arc.</h2><p>The free loop, feedback, queue, and data export stay free. Studio adds named practice packs and an all-time progress review. One purchase, no subscription.</p></div><div class="upgrade-actions"><a class="primary" href="${checkoutUrl()}">Get Studio</a><button id="restore-license" class="secondary">Restore license</button></div><form id="license-form" class="license-form" hidden><label for="license-token">License token</label><div><input id="license-token" autocomplete="off" spellcheck="false"><button class="primary" type="submit">Verify</button></div></form><p class="license-note">${escapeHtml(state.licenseNote)}</p></section>`;
+  if (!state.unlocked) return `<section class="upgrade" aria-labelledby="upgrade-title"><div><p class="eyebrow">Hookback Studio · $19 one-time purchase</p><h2 id="upgrade-title">Add packs and progress review</h2><p>The loop, pitch feedback, practice queue, and data export stay free. Studio adds named practice packs and an all-time progress review.</p></div><div class="upgrade-actions"><a class="primary" href="${checkoutUrl()}">Buy Studio</a><button id="restore-license" class="secondary">Restore a license</button></div><form id="license-form" class="license-form" hidden><label for="license-token">License token</label><div><input id="license-token" autocomplete="off" spellcheck="false"><button class="primary" type="submit">Verify license</button></div></form><p class="license-note">${escapeHtml(state.licenseNote)}</p></section>`;
   const recent = [...attempts].sort((a, b) => a.at - b.at).slice(-12);
-  return `<section class="progress" aria-labelledby="progress-title"><div class="section-heading"><div><p class="eyebrow">Studio unlocked</p><h2 id="progress-title">The long arc</h2></div><button id="manage-license" class="text-button">Remove license</button></div><div class="stat-row"><div><strong>${attempts.length}</strong><span>answers</span></div><div><strong>${days}</strong><span>practice days</span></div><div><strong>${avg}%</strong><span>average match</span></div></div><div class="progress-bars" aria-label="Recent match scores">${recent.length ? recent.map(a => `<i style="--h:${Math.max(8, a.score)}%" title="${a.score}%"></i>`).join("") : `<p>Your recent scores will collect here.</p>`}</div>${state.active ? `<form id="pack-form" class="pack-form"><label for="pack-name">Practice pack for this hook</label><div><input id="pack-name" value="${escapeHtml(state.active.pack || "")}" maxlength="32" placeholder="e.g. Friday guitar"><button class="secondary">Save pack</button></div></form>` : ""}</section>`;
+  return `<section class="progress" aria-labelledby="progress-title"><div class="section-heading"><div><p class="eyebrow">Studio license active</p><h2 id="progress-title">Practice progress</h2></div><button id="manage-license" class="text-button">Remove license</button></div><div class="stat-row"><div><strong>${attempts.length}</strong><span>answers</span></div><div><strong>${days}</strong><span>practice days</span></div><div><strong>${avg}%</strong><span>average match</span></div></div><div class="progress-bars" aria-label="Recent match scores">${recent.length ? recent.map(a => `<i style="--h:${Math.max(8, a.score)}%" title="${a.score}%"></i>`).join("") : `<p>Your recent scores will appear here.</p>`}</div>${state.active ? `<form id="pack-form" class="pack-form"><label for="pack-name">Practice pack for this clip</label><div><input id="pack-name" value="${escapeHtml(state.active.pack || "")}" maxlength="32" placeholder="Friday guitar"><button class="secondary">Save pack</button></div></form>` : ""}</section>`;
 }
 
 function supportMarkup(): string {
-  return `<section class="support" aria-labelledby="support-title"><p class="eyebrow">A kinder drill</p><h2 id="support-title">What Hookback hears—and what it doesn’t</h2><div class="support-grid"><p><strong>It follows pitch shape.</strong> Feedback compares the rise and fall of a clear, single-note melody. Chords and dense mixes can confuse the estimate.</p><p><strong>It is not transcription.</strong> Use the score as a compass, then trust your ears. Tight loops and humming work best.</p><p><strong>It keeps your music private.</strong> Audio, answers, and history are processed locally. Nothing is uploaded by Hookback.</p></div></section>`;
+  return `<section class="support" aria-labelledby="support-title"><p class="eyebrow">Limits and privacy</p><h2 id="support-title">What the feedback measures</h2><div class="support-grid"><p><strong>It compares single-note pitch.</strong> The result shows pitch distance and melodic shape. Chords and dense mixes can reduce accuracy.</p><p><strong>It does not transcribe songs.</strong> Use the result as a practice guide. Clear notes and short loops work best.</p><p><strong>It processes audio on this device.</strong> Hookback does not upload your clips or microphone recordings.</p></div></section>`;
 }
 
 function bindCommon(): void {
@@ -196,6 +287,17 @@ function bindCommon(): void {
   });
   $("#apply-update")?.addEventListener("click", applyServiceWorkerUpdate);
   $("#pack-form")?.addEventListener("submit", event => void savePack(event));
+  $("#reset-demo")?.addEventListener("click", () => void loadDemo(true).then(render));
+  if (state.demo) {
+    document.querySelectorAll<HTMLAnchorElement>('a[href^="/"]').forEach(anchor => {
+      const destination = new URL(anchor.href);
+      if (destination.pathname.replace(/\/+$/, "") === "/demo") return;
+      anchor.addEventListener("click", event => {
+        event.preventDefault();
+        void clearClips().finally(() => location.assign(`${destination.pathname}${destination.search}${destination.hash}`));
+      });
+    });
+  }
 }
 
 function bindPractice(): void {
@@ -226,7 +328,7 @@ async function receiveFile(file?: File): Promise<void> {
     const buffer = await getContext().decodeAudioData(bytes.slice(0));
     if (!Number.isFinite(buffer.duration)) throw new Error("undecodable");
     if (buffer.duration < MIN_CLIP_SECONDS || buffer.duration > MAX_CLIP_SECONDS) {
-      setAnnouncement("Choose a 5–12 second practice phrase so Hookback can make a useful loop.", true);
+      setAnnouncement("Choose a 5–12 second practice phrase so Hookback can make a practice loop.", true);
       return;
     }
     const a = 0;
@@ -264,12 +366,12 @@ async function activateClip(id: string): Promise<void> {
   const clip = state.clips.find(item => item.id === id);
   if (!clip) return;
   try {
-    state.message = "Opening your saved hook…"; state.error = ""; render();
+    state.message = "Opening your saved clip…"; state.error = ""; render();
     const bytes = await clip.blob.arrayBuffer();
     state.buffer = await getContext().decodeAudioData(bytes.slice(0));
     state.active = clip; state.comparison = null; state.answer = [];
     setObjectUrl(clip.blob);
-    state.message = "Hook ready.";
+    state.message = "Clip ready.";
   } catch {
     state.error = "This saved clip can’t be decoded now. Export your data, then try importing it in an updated browser.";
   }
@@ -540,13 +642,13 @@ async function importData(file?: File): Promise<void> {
   try {
     const parsed = JSON.parse(await file.text()) as { format: string; version: number; clips: Array<Omit<ClipRecord, "blob"> & { blob: { type: string; data: string } }> };
     if (parsed.format !== "hookback-backup" || parsed.version !== 1 || !Array.isArray(parsed.clips)) throw new Error("format");
-    if (!confirm(`Import ${parsed.clips.length} hook${parsed.clips.length === 1 ? "" : "s"}? This replaces the current local queue.`)) return;
+    if (!confirm(`Import ${parsed.clips.length} clip${parsed.clips.length === 1 ? "" : "s"}? This replaces the current local queue.`)) return;
     const imported = parsed.clips.map(item => ({ ...item, blob: base64ToBlob(item.blob.data, item.blob.type) })) as ClipRecord[];
     await clearClips();
     await Promise.all(imported.map(saveClip));
     state.clips = imported.sort((a, b) => a.nextDue - b.nextDue);
     state.active = null; state.buffer = null; state.comparison = null;
-    state.message = `Imported ${imported.length} hook${imported.length === 1 ? "" : "s"}.`;
+    state.message = `Imported ${imported.length} clip${imported.length === 1 ? "" : "s"}.`;
     render();
   } catch {
     setAnnouncement("That file isn’t a valid Hookback backup. Nothing was changed.", true);
@@ -578,7 +680,7 @@ async function savePack(event: Event): Promise<void> {
 function bindNetwork(): void {
   const update = () => {
     const label = $("#network-label");
-    if (label) label.textContent = navigator.onLine ? "Local mode" : "Offline · still working";
+    if (label) label.textContent = navigator.onLine ? "On-device mode" : "Offline · app is ready";
     document.body.classList.toggle("offline", !navigator.onLine);
   };
   window.addEventListener("online", update);
@@ -628,7 +730,8 @@ function applyServiceWorkerUpdate(): void {
 
 async function init(): Promise<void> {
   try {
-    state.clips = await listClips();
+    if (state.demo) await loadDemo();
+    else state.clips = await listClips();
   } catch {
     state.error = "Local storage isn’t available. You can practice now, but this browser may not keep the queue.";
   }
@@ -636,6 +739,7 @@ async function init(): Promise<void> {
   render();
   bindNetwork();
   void registerServiceWorker();
+  if (state.demo) return;
   const hadToken = Boolean(readLicense());
   const verdict = await captureAndVerifyLicense();
   state.unlocked = verdict.valid;

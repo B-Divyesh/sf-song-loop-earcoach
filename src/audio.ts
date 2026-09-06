@@ -4,32 +4,65 @@ const MIN_HZ = 65;
 const MAX_HZ = 1200;
 
 export function autoCorrelate(samples: Float32Array, sampleRate: number): number | null {
+  let mean = 0;
+  for (const sample of samples) mean += sample;
+  mean /= samples.length;
   let rms = 0;
-  for (const sample of samples) rms += sample * sample;
+  for (const sample of samples) rms += (sample - mean) * (sample - mean);
   rms = Math.sqrt(rms / samples.length);
   if (rms < 0.012) return null;
 
   const minLag = Math.floor(sampleRate / MAX_HZ);
-  const maxLag = Math.min(Math.floor(sampleRate / MIN_HZ), samples.length / 2);
-  let bestLag = -1;
-  let best = 0;
-  for (let lag = minLag; lag <= maxLag; lag += 1) {
-    let corr = 0;
-    let normA = 0;
-    let normB = 0;
+  const maxLag = Math.min(Math.floor(sampleRate / MIN_HZ), Math.floor(samples.length / 2));
+  const difference = new Float64Array(maxLag + 1);
+  const normalized = new Float64Array(maxLag + 1);
+
+  for (let lag = 1; lag <= maxLag; lag += 1) {
+    let sum = 0;
     for (let i = 0; i < samples.length - lag; i += 1) {
-      corr += samples[i] * samples[i + lag];
-      normA += samples[i] * samples[i];
-      normB += samples[i + lag] * samples[i + lag];
+      const delta = (samples[i] - mean) - (samples[i + lag] - mean);
+      sum += delta * delta;
     }
-    const normalized = corr / Math.sqrt(normA * normB || 1);
-    if (normalized > best) {
-      best = normalized;
+    difference[lag] = sum;
+  }
+
+  normalized[0] = 1;
+  let runningSum = 0;
+  for (let lag = 1; lag <= maxLag; lag += 1) {
+    runningSum += difference[lag];
+    normalized[lag] = runningSum ? difference[lag] * lag / runningSum : 1;
+  }
+
+  // YIN's first strong valley represents the shortest repeating period. A
+  // global correlation maximum can land on a later multiple and report an
+  // otherwise clean note one or more octaves too low.
+  let bestLag = -1;
+  for (let lag = minLag; lag < maxLag; lag += 1) {
+    if (normalized[lag] < 0.14) {
+      while (lag + 1 <= maxLag && normalized[lag + 1] < normalized[lag]) lag += 1;
       bestLag = lag;
+      break;
     }
   }
-  if (best < 0.72 || bestLag < 0) return null;
-  return sampleRate / bestLag;
+  if (bestLag < 0) {
+    for (let lag = minLag; lag <= maxLag; lag += 1) {
+      if (bestLag < 0 || normalized[lag] < normalized[bestLag]) bestLag = lag;
+    }
+    if (bestLag < 0 || normalized[bestLag] > 0.24) return null;
+  }
+
+  const left = normalized[Math.max(minLag, bestLag - 1)];
+  const center = normalized[bestLag];
+  const right = normalized[Math.min(maxLag, bestLag + 1)];
+  const denominator = left - 2 * center + right;
+  const refinedLag = Math.abs(denominator) > 1e-9
+    ? bestLag + clampFraction((left - right) / (2 * denominator))
+    : bestLag;
+  return sampleRate / refinedLag;
+}
+
+function clampFraction(value: number): number {
+  return Math.max(-0.5, Math.min(0.5, value));
 }
 
 export function frequencyToMidi(hz: number): number {

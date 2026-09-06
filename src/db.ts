@@ -1,11 +1,15 @@
 import type { ClipRecord } from "./types";
 
-const DB_NAME = "hookback-local";
 const STORE = "clips";
+let databaseName = "hookback-local";
+
+export function setDatabaseMode(mode: "real" | "demo"): void {
+  databaseName = mode === "demo" ? "hookback-demo" : "hookback-local";
+}
 
 function open(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
+    const request = indexedDB.open(databaseName, 1);
     request.onupgradeneeded = () => request.result.createObjectStore(STORE, { keyPath: "id" });
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);

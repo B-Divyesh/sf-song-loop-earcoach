@@ -1,5 +1,5 @@
-const VERSION = "hookback-v4";
-const SHELL = ["/", "/offline.html", "/manifest.webmanifest", "/assets/icon-192.png", "/assets/icon-512.png", "/assets/hookback-ribbon.webp", "/privacy/", "/terms/"];
+const VERSION = "hookback-v5";
+const SHELL = ["/", "/demo", "/offline.html", "/404.html", "/legal.css", "/manifest.webmanifest", "/assets/icon.svg", "/assets/icon-192.png", "/assets/icon-512.png", "/assets/apple-touch-icon.png", "/assets/hookback-ribbon.webp", "/assets/hookback-social.jpg", "/privacy/", "/terms/"];
 
 self.addEventListener("install", event => {
   event.waitUntil((async () => {
@@ -32,7 +32,8 @@ self.addEventListener("fetch", event => {
   if (url.origin !== location.origin) return;
   if (event.request.mode === "navigate") {
     event.respondWith(fetch(event.request).then(response => {
-      const copy = response.clone(); caches.open(VERSION).then(cache => cache.put(event.request, copy)); return response;
+      if (response.ok) { const copy = response.clone(); caches.open(VERSION).then(cache => cache.put(event.request, copy)); }
+      return response;
     }).catch(async () => (await caches.match(event.request)) || (await caches.match("/offline.html"))));
     return;
   }

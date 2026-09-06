@@ -143,3 +143,14 @@ test("demo, legal, and not-found routes have no serious accessibility violations
     await expect(page.locator("main")).toHaveCount(1);
   }
 });
+
+test("reduced motion and 200 percent text keep the demo usable", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/demo");
+  const duration = await page.getByRole("button", { name: "Play loop" }).evaluate(element => getComputedStyle(element).transitionDuration);
+  expect(Number.parseFloat(duration)).toBeLessThanOrEqual(0.001);
+  await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await expect(page.getByRole("button", { name: "Play loop" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Record answer" })).toBeVisible();
+});

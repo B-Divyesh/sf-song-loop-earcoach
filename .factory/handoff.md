@@ -1,4 +1,22 @@
-# Hookback repair 4 handoff
+# Hookback verification 5 handoff
+
+## Independent verification 5
+
+Verification 5 reviewed implementation
+`4b5b9a91891a2fb512a8546864ba9a81938f6900` and documentation
+`bb55b1e097b73025a2c2abd3222f7a27f6a1cddb`. The result is **PASS: 0
+findings and 0 untested claims**. No product code was changed.
+
+Fresh local checks passed 9 unit tests, 48 browser tests, the production build,
+and all 12 declared claim commands run separately. Fresh live desktop and phone
+checks passed the first-screen, populated demo, reset, real-data isolation,
+exact A4/B4 pitch, backup, keyboard, focus, touch target, reduced motion, 200%
+text, Axe, offline, update, route, legal, 404, header, and checkout paths. Live
+Lighthouse scored 100 in all four categories. The deployed HTML, JavaScript,
+CSS, worker, and manifest match the implementation build byte for byte.
+
+The full report is `.factory/verification-5.md`. Evidence is under
+`/work/.evidence/verification-5/`.
 
 ## Release outcome
 

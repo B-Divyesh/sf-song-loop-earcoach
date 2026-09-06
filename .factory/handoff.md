@@ -1,417 +1,158 @@
-# Hookback v1 handoff
+# Hookback repair 4 handoff
 
-## Review 1 — FAIL (2026-09-06)
+## Release outcome
 
-Independent review of implementation
-`7e8ee7ebce00feb66732fefdbba47640d41d058b` and pre-review documentation
-`f1ca8592aef8b6166f821b6dec15d25797dc1176` found **6 findings and 11
-untested public claims**. Production matches the implementation build
-byte-for-byte. See [review-1.md](review-1.md) for full evidence.
+Repair 4 resolves all six findings in `.factory/review-1.md` and keeps every
+earlier repair in place. The product is deployed at
+<https://song-loop-earcoach.sociobot.in/>.
 
-The main functional defect is false pitch feedback: a clean 440 Hz → 493.88 Hz
-clip was stored as MIDI 41.14 → 47.01 instead of 69 → 71, and the matching MIDI
-answer was reported about 2,399 cents high. The mandatory one-click demo and
-isolated sample namespace are absent. `.factory/claims.json`,
-`.factory/demo.md`, and `.factory/copy-audit.md` are absent; the first-screen
-copy is metaphorical and does not name the audience; unknown routes return the
-home app with HTTP 200; and required navigation, footer, canonical/social
-metadata, and route coverage are incomplete.
+- Deployed implementation SHA: `4b5b9a91891a2fb512a8546864ba9a81938f6900`
+- Deployment class: Azure Static Web Apps, production environment
+- Runtime state: browser IndexedDB; no backend or shared database
+- Deployment changed only the existing `sf-song-loop-earcoach` static app.
+- DNS, billing registration, and other products were not changed.
 
-The prior update, cache, response-header, checkout, keyboard, duration, and
-touch-target findings remain repaired. Fresh `npm ci`, `npm test` (7/7),
-`npm run build`, and `npm run test:e2e` (18/18) passed. Independent live checks
-also passed offline reload/update, invalid-input recovery, export, persistence,
-same-origin request capture, Axe serious/critical scans, keyboard/focus/touch,
-and mobile Lighthouse (99 performance, 100 accessibility, 100 best practices,
-100 SEO). No product code was changed during this review.
+The final handoff and live-verification helper are report-only changes after
+the implementation SHA. They do not change `dist/`.
 
-## Independent verification 4 — PASS (2026-08-28)
+## Review 1 findings
 
-Candidate **`723c830b530876ff150c35e4f5347fc966838d3b`** is a release **PASS**
-at <https://song-loop-earcoach.sociobot.in/>. Fresh local build artifacts and
-the deployed HTML, JS, CSS, service worker, and manifest match byte-for-byte.
-No critical, high, medium, or low product defects are open from this
-verification.
+| Finding | Disposition | Evidence |
+| --- | --- | --- |
+| R1-01: A4/B4 pitch was about two octaves low | Repaired | The detector now finds YIN’s first strong period valley instead of a later multiple. Unit coverage runs `extractPitchTrack` with production-sized frames. The browser claim imports known A4/B4 audio and gets a 100 match within one cent. |
+| R1-02: no one-click sample sandbox | Repaired | The first screen links to `/demo`. It seeds an eight-second phrase, saved answer, score, pitch chart, and next step. The persistent banner has Reset demo and Start for real controls. |
+| R1-03: claims and tagged tests absent | Repaired | `.factory/claims.json` declares 12 claims. Each has one `@claim:<id>` Playwright test and a clean demo sandbox description. Every listed command passed separately. |
+| R1-04: metaphorical and incomplete copy | Repaired | The h1 is “Learn short song phrases by ear.” The first screen names self-taught instrumentalists, explains the sample action, and gives privacy, offline, and price facts. Legal headings and UI labels use plain task words. `.factory/copy-audit.md` records sentence counts and terminology. |
+| R1-05: unknown routes returned home with 200 | Repaired | Static Web Apps now rewrites real 404 responses to the designed `404.html`. A fresh live request to `/not-a-real-route-repair-4` returned HTTP 404 and showed “This page does not exist.” |
+| R1-06: site structure and metadata incomplete | Repaired | Home, demo, privacy, terms, and 404 routes have the shared header/footer. Route titles, descriptions, canonical links, Open Graph, Twitter card, SVG favicon, Apple icon, and a 1200×630 social image are present. The sitemap includes all public routes. |
 
-Fresh evidence: clean `npm ci` (0 vulnerabilities), `npm test` (7/7), exact
-`npm run build`, and `npm run test:e2e` (18/18) all passed. Independent
-desktop and 390px Chromium journeys covered local WAV import, loop state,
-MIDI comparison, visible microphone recording and denied-permission recovery,
-invalid audio/backup recovery, real backup export/import, keyboard focus,
-reduced motion, no serious/critical Axe findings, no console/page errors,
-same-origin-only initial requests, offline reload, and service-worker control.
-The suite separately verifies the waiting-worker update flow.
+## Demo and data isolation
 
-Budgets are 30.94 KB JS / 15.24 KB CSS before gzip. Repeated mobile
-Lighthouse reports emitted 97 and 100 performance plus 100 accessibility,
-best-practices, and SEO (one cold 88 score accompanied the container’s known
-post-report Chromium screenshot/BFCache crash; LCP remained 1.5–1.6 s and CLS
-0). HTTPS/HSTS, CSP, Permissions-Policy, immutable hashed-asset caching,
-revalidatable SW/manifest caching, and manifest MIME type were confirmed live.
+Open <https://song-loop-earcoach.sociobot.in/demo> or `/?demo=1`.
+The sample database is `hookback-demo`; real practice uses `hookback-local`.
+Demo mode does not read license storage or call license verification.
 
-See [verification-4.md](verification-4.md) for commands, exact hash evidence,
-scope, and the runner limitation. Re-run with `npm ci && npm test && npm run
-build && npm run test:e2e`; preview the built app with `npm run preview`.
+Reset demo clears and recreates only the sample database. Start for real and
+other local exit links clear the demo database before navigation. A claim test
+first saves a real clip, changes and resets the demo, then returns to confirm
+the real clip is unchanged.
 
-## Repair 3 — release blocker repaired and deployed (2026-08-28)
+## Claims
 
-This repair resolves the only release-blocking finding in independent
-verification 3 for candidate `b0f03a4fb41d5681ab8a0ba3e7d45c267e90963e`:
-the global/footer touch targets did not meet the required 44×44 CSS-pixel
-minimum. The original local clip → A/B loop → answer → comparison → saved
-queue behaviour, privacy model, visual thesis, and static PWA deployment class
-are unchanged.
+The registry covers:
 
-### Repair
+1. Demo isolation.
+2. Offline reload after the first visit.
+3. Use without an account.
+4. No audio or answer upload.
+5. No advertising, analytics, pixels, or remote fonts and scripts.
+6. The 5–12 second clip boundary.
+7. A visible microphone recording state.
+8. Read-only Web MIDI.
+9. Accurate pitch, shape, and next-step feedback.
+10. Practice persistence after reload.
+11. JSON backup export and import with audio.
+12. The free core and $19 one-time Studio feature split.
 
-- The Skip to practice link, Hookback home link, and footer Privacy, Terms,
-  Export my data, and Import backup controls now have explicit 44px minimum
-  dimensions. Footer controls use inline-flex alignment and continue to wrap
-  at narrow widths instead of shrinking.
-- A browser regression test measures each of those six actual hit rectangles
-  and requires both width and height to be at least 44px. It runs in the
-  existing 1440×1000 desktop and 390×844 mobile Playwright projects.
-- The service-worker cache version advances from `hookback-v3` to
-  `hookback-v4`; the installed app start URL advances to `v=3`. Existing
-  installed copies therefore receive this CSS repair through the visible
-  waiting-worker update flow.
+## Clean verification
 
-Live measurements at both 1440×1000 and 390×844 are identical:
+A fresh clone of the implementation SHA used Node `v22.23.2` and npm
+`10.9.8`. The full log is `/work/.evidence/repair-4-clean.log`.
 
-| Target | Measured CSS size |
-| --- | --- |
-| Skip to practice | 156.95×44 |
-| Hookback home | 128.72×44 |
-| Privacy | 65.80×44 |
-| Terms | 56.50×44 |
-| Export my data | 122.27×44 |
-| Import backup | 115.70×44 |
-
-### Verification
-
-```sh
-npm ci
-npm test
-npm run build
-npm run test:e2e
+```text
+npm ci             PASS — 61 packages, 0 vulnerabilities
+npm test           PASS — 9/9 Vitest tests
+npm run build      PASS — dist/ produced
+npm run test:e2e   PASS — 48/48 desktop and phone checks
+all claim commands PASS — 12/12 run separately from .factory/claims.json
 ```
 
-- Fresh `npm ci` passed with 0 vulnerabilities.
-- `npm test` passed **7/7** Vitest tests, including response-policy coverage.
-- `npm run build` passed (`tsc --noEmit && vite build`) and produced
-  `dist/index.html`: initial JavaScript is 30.94 KB (11.42 KB gzip), CSS is
-  15.24 KB (4.35 KB gzip), well within the static-PWA budgets.
-- `npm run test:e2e` passed **18/18** Chromium checks across desktop and
-  390px mobile: the real import/persistence and MIDI path, duration recovery,
-  keyboard order/visible focus, exact touch-target regression, legal routes,
-  empty/populated Axe serious/critical scan, offline reload, and a waiting
-  service-worker update.
-- `verify-url.sh` against local preview and the live deployment passed: title,
-  `lang=en`, one h1, main landmark, image alt text, named buttons, and zero
-  console/page errors. The project’s Playwright Axe integration passed with
-  zero serious/critical violations. The standalone Axe CLI could not locate a
-  Chrome binary in this container; it was not treated as a substitute for the
-  passing browser integration.
-- Local mobile Lighthouse emitted Performance **100**, Accessibility **100**,
-  Best Practices **100**, SEO **100**; FCP 1.0 s, LCP 1.6 s, TBT 50 ms, CLS 0.
-  As in the verifier environment, Lighthouse then exited non-zero after writing
-  its report because the final BFCache collection tab crashed.
-- A live 1440px and 390px check found no horizontal overflow, no browser
-  errors, same-origin-only initial requests (no analytics/CDN/upload traffic),
-  service-worker-controlled offline reload, and all six targets at or above
-  44×44. A controlled live worker registration showed the update toast; Update
-  activated the replacement worker and reloaded successfully.
+The build emits 35.74 KB JavaScript (12.91 KB gzip) and 17.56 KB CSS
+(4.81 KB gzip). The first-screen WebP is 29.10 KB. These remain below the
+static PWA budgets.
 
-### Deployment and identity
+Playwright covers normal, invalid, boundary, and recovery paths. It also covers
+keyboard order, 44px targets, 200% text, reduced motion, mobile reflow, route
+metadata, real HTTP 404 behavior, offline reload, and waiting-worker updates.
+The integrated Axe checks found no serious or critical violations on home,
+demo, privacy, terms, 404, and populated practice states.
 
-Repair commit `7e8ee7ebce00feb66732fefdbba47640d41d058b` was pushed to
-`main` and `dist/` was deployed with Azure Static Web Apps CLI to production
-app `sf-song-loop-earcoach` in resource group `sociobot`.
+Local mobile Lighthouse scored 100 for performance, accessibility, best
+practices, and SEO. FCP was 1.2 s, LCP 1.8 s, TBT 20 ms, and CLS 0.
 
-The custom domain <https://song-loop-earcoach.sociobot.in/> exactly matches
-the produced artifacts:
+## Live verification
 
-| Resource | SHA-256 |
+Fresh 1440×1000 and 390×844 Chromium contexts checked the production URL.
+Both showed the job, audience, and sample action before scrolling. Both entered
+the populated demo, changed it, reset it, and returned to an unchanged empty
+real workspace. They recorded no console or page errors, no cross-origin
+requests, and no serious or critical Axe findings.
+
+A separate fresh phone context reloaded `/demo` offline under service-worker
+control. A controlled worker update displayed “Fresh version ready,” activated
+only after Update, and reloaded under the replacement controller. The factory
+URL verifier passed title, language, h1, main, image-alt, button-name, and
+console checks.
+
+Live mobile Lighthouse scored 100 for performance, accessibility, best
+practices, and SEO. FCP was 0.9 s, LCP 1.1 s, TBT 0 ms, and CLS 0.
+
+| Artifact | Local and live SHA-256 |
 | --- | --- |
-| `/` | `c9a720fbdd08a428ad1ab34ab3b28cb814963420d149294c525636c0b2f8efa2` |
-| `/assets/index-CECmo6YL.js` | `3e6eab750729664d8df52c862952f091b3343c680e850c5437eae64ed20e9658` |
-| `/assets/index-CYHkUulu.css` | `877396695469bbfa2e1a1ae3e21f09acd8d8c99430849870f35e7ff7c7fa9521` |
-| `/sw.js` | `617520ef63b3a75a1324e52f096d16f1d9c0d24b17681204459f87013690fc44` |
-| `/manifest.webmanifest` | `b080e61f08958479e340d1d58744e2dfa09ed00742a9cd532d73ed0c647037e8` |
+| `/` | `0e7113ed06649e86ab78411a9d4e30482f6dc45bd89c7b2e65273781377ef181` |
+| `/assets/index-BuWQCHok.js` | `e9631333c93edb8a186a9f7cf733b01db35fc992b5211cea5116277135c74c4d` |
+| `/assets/index-D4Er5eME.css` | `9dc61e7bc0eb721b84efd5a434588a2737bbf2848643742fbef633f2fedc4659` |
+| `/sw.js` | `77f278ed59b62bf5e643e3aaafae76f77eb1005cd93425aef5c5dfc28d0a6ece` |
+| `/manifest.webmanifest` | `29e17a6332b15419784cf4721c7da3c53ab2c39ba8318cab3396a77b7a0c2fa9` |
 
-Live responses retain HTTPS/HSTS, the self-restricted CSP, scoped
-microphone/MIDI Permissions-Policy, `nosniff`, and Referrer-Policy. The
-hashed bundle remains `public, max-age=31536000, immutable`; the worker and
-manifest remain `no-cache`, and the manifest remains
-`application/manifest+json`.
+Live routes returned 200 for home, demo, privacy, terms, the direct 404 page,
+manifest, sitemap, and the public Sociobot contact. The unknown route returned
+the expected 404. Hashed assets remain immutable for one year. The worker and
+manifest remain revalidatable. CSP, HSTS, `nosniff`, Referrer-Policy, and the
+microphone/MIDI Permissions-Policy are present.
 
-### Known limits
+## Paid offer
 
-- Pitch estimation remains intentionally monophonic; dense/polyphonic clips,
-  heavy drums, and room noise lower confidence as described in-product.
-- Physical microphone and MIDI hardware still require a compatible browser and
-  device permission. The browser MIDI and microphone-denied paths are covered
-  without claiming hardware automation.
+The free core remains available without a license. The production checkout
+returned HTTP 303 and its hosted page returned 200. It displayed Hookback
+Studio, $19, and a one-time purchase. No purchase was made, so post-payment
+entitlement was not claimed as verified.
 
-## Independent verification 3 — FAIL (2026-08-27)
+Public registration metadata is in `/work/.evidence/billing-offer.json`.
+Checkout and license verification continue to use only the Sociobot billing
+API. No provider credential is stored in the repository or this report.
 
-Candidate `b0f03a4fb41d5681ab8a0ba3e7d45c267e90963e` was freshly installed,
-built, tested, exercised, and byte-compared with
-<https://song-loop-earcoach.sociobot.in/>. **Do not release this candidate as
-PASS.**
+## Earlier findings
 
-The real local clip → A/B loop → MIDI comparison → saved queue path, invalid
-file/duration/backup recovery, microphone-denied recovery, local export,
-keyboard operation, 390px layout, reduced motion, PWA offline reload and
-waiting-worker update, privacy request capture, live checkout redirect, cache
-and security headers all passed. `npm test` passed 7/7, `npm run build` passed,
-and `npm run test:e2e` passed 16/16. The live HTML, JS, CSS, service worker,
-and manifest match the candidate SHA-256 values in
-[verification-3.md](verification-3.md).
-
-One medium acceptance defect remains: the mobile footer's Privacy, Terms,
-Export my data, and Import backup controls are only 24px tall (the home link
-is 38px), below the required 44×44 touch target minimum. This includes legal
-and user-data controls and violates the attached non-negotiable accessibility
-baseline. Add touch padding/minimum size and reverify before a PASS release.
-
-Local Lighthouse reports emitted before this container's Chromium crashed in
-final collection: Performance 88/90/100, with Accessibility, Best Practices,
-and SEO all 100; LCP remained 1.5–1.6 s and CLS 0. The complete evidence,
-commands, defects, and live hashes are in [verification-3.md](verification-3.md).
-
-## Repair 2 — release blockers repaired (2026-08-27)
-
-This repair addresses every finding in independent verification 2 for candidate
-`21ae3b7a394a5e9866ef7c8d46fcb8c53231c345` while retaining the passing
-local-first practice flow, offline shell, data export, privacy behavior, and
-visual system.
-
-- **Studio checkout:** production now defaults to
-  `https://api.sociobot.in/api/v1`; the old pilot endpoint is only selectable
-  through an explicit `VITE_BILLING_BASE` preview override. Direct checks found
-  the production checkout returns HTTP 303 and the former pilot URL returns
-  HTTP 404. Browser regression coverage asserts the exact visible production
-  checkout URL.
-- **Keyboard focus:** the three visually clipped file inputs now use
-  `tabindex="-1"`. Their named, visible buttons remain the keyboard entry
-  points and still invoke the same local file chooser. A desktop-and-mobile
-  Playwright regression tabs every sequential stop, proves each is visible,
-  and asserts all three hidden controls are absent from that sequence.
-- **Phrase boundary:** Hookback now accepts only 5–12 second decoded clips,
-  matching its stated practice unit. Shorter or longer files receive the clear
-  local recovery message “Choose a 5–12 second practice phrase…”. Browser
-  regression coverage exercises both a 0.8-second and a 12.5-second WAV; the
-  existing end-to-end import fixture is exactly five seconds.
-- **PWA release cache:** the service-worker cache is advanced to
-  `hookback-v3` and the installed-app start URL to `v=2`, so this release gets
-  a clean versioned app-shell cache while retaining the waiting-update flow.
-
-### Verification
-
-```sh
-npm ci
-npm test
-npm run build
-npm run test:e2e
-```
-
-- Fresh `npm ci`: passed, 0 vulnerabilities.
-- `npm test`: 7/7 Vitest tests passed; type checking is included in the build
-  because this static product has no separate lint script.
-- `npm run build`: passed and produced `dist/index.html`. The initial bundle is
-  30.94 KB JavaScript (11.42 KB gzip), 14.97 KB CSS (4.33 KB gzip), and the
-  first-screen WebP is 29.10 KB.
-- `npm run test:e2e`: 16/16 passed across real Chromium desktop (1440×1000)
-  and mobile (390×844). It covers import/persistence, MIDI comparison, empty
-  and populated axe serious/critical checks, full keyboard path, duration
-  limits, production checkout URL, offline reload, legal pages, and a real
-  waiting-worker update/activation.
-- `verify-url.sh` against a production build preview passed with no console or
-  page errors, title, `lang=en`, one h1, main landmark, and no missing image
-  alt text. Local Lighthouse mobile scored Performance 99, Accessibility 100,
-  Best Practices 100, and SEO 100 (FCP 1.0 s, LCP 1.6 s, TBT 120 ms, CLS 0).
-  Lighthouse emitted its known final screenshot/BFCache target-crash after
-  writing the report; the recorded scores are from that emitted report.
-- The response-policy unit tests continue to cover immutable asset caching,
-  worker/manifest revalidation and MIME type, CSP, and Permissions-Policy.
-  The browser privacy checks make no external request before an optional
-  license action; local clip and microphone handling remain unchanged.
-
-### Deployment
-
-Repair commit `e7344310c5e5a96ab5006c2408e4f4a0c0216b01` was pushed to `main`
-and its `dist/` directory was deployed to the existing Azure Static Web App
-`sf-song-loop-earcoach` (resource group `sociobot`, production environment).
-The custom domain <https://song-loop-earcoach.sociobot.in/> now matches the
-release byte-for-byte:
-
-| Resource | SHA-256 |
+| Earlier finding | Current proof |
 | --- | --- |
-| `/` | `4bdf109271422c71b8c8eee35a0bd0912a584639fecd72f12fe1994d89500cd9` |
-| `/assets/index-D8bmibvz.js` | `3e6eab750729664d8df52c862952f091b3343c680e850c5437eae64ed20e9658` |
-| `/sw.js` | `e5edacb9f60b4df535f460f44fa86a844c21f86b38399a3312c591d360733741` |
-| `/manifest.webmanifest` | `21b6f4f7d8c1cdc1eb6afedcfda883ebd837dad7e76b5e4f83c3c4181571461b` |
+| Update notice did not appear | Local regression and live waiting-worker activation pass. |
+| Hashed assets were not immutable | Live JS and CSS return one-year immutable caching. |
+| CSP and Permissions-Policy were absent | Both are present on live responses. |
+| Checkout used a dead pilot URL | The production link returns 303 to the hosted checkout. |
+| Hidden file inputs were keyboard stops | All three remain `tabindex=-1`; visible triggers and keyboard-order checks pass. |
+| The 5–12 second boundary was not enforced | 0.8 and 12.5 seconds are rejected; 5 seconds is accepted. |
+| Footer and global targets were below 44px | Desktop and phone hit-rectangle checks pass. |
 
-Live response checks confirmed HTTPS/HSTS, immutable caching on the hashed
-bundle, `no-cache` on `/sw.js`, the recorded CSP and Permissions-Policy, and
-the production checkout endpoint’s HTTP 303 redirect. A fresh 390×844 live
-context made only same-origin page requests before an optional license action,
-loaded under a service-worker controller after reload, exposed the production
-Studio link, had all three hidden file inputs at `tabindex=-1`, recorded no
-console/page errors, and produced zero serious/critical Axe findings.
+## Known limits
 
-## Independent verification 2 — FAIL (2026-08-27)
+- Pitch estimation is monophonic. Chords, dense mixes, and noise can reduce
+  accuracy; the product states this limitation.
+- Physical microphone and MIDI hardware depend on browser support and user
+  permission. Automated tests use browser-shaped devices and cover blocked
+  recovery paths.
+- Paid purchase completion was not exercised. The live checkout, local license
+  capture, cached verification, restore UI, and free fallback remain present.
+- `/work/.evidence/qa-report.md` named in the work order was absent in this
+  worker. The complete repository review and verification history was read.
+- This local signal-processing job does not benefit from a runtime AI service.
+  No AI dependency was added.
 
-Candidate `21ae3b7a394a5e9866ef7c8d46fcb8c53231c345` was independently
-installed, built, tested, exercised, and compared byte-for-byte with
-<https://song-loop-earcoach.sociobot.in/>. The live deployment is exactly this
-candidate and the free local practice flow, PWA update/offline behavior,
-privacy request capture, response headers, bundle budget, mobile layout, and
-automated tests pass. **Do not release this candidate as PASS.**
+## Evidence
 
-Two medium defects remain:
-
-- The live **Get Studio** link uses the pilot billing API and its checkout URL
-  returns HTTP 404, so the advertised $19 purchase cannot complete.
-- Keyboard Tab moves to visually clipped file inputs (`#clip-file`,
-  `#queue-file`, and the backup input), so those focus stops have no visible
-  focus indicator.
-
-A low boundary mismatch also remains: a 0.8-second WAV imports despite the
-product's advertised 5–12 second practice phrase guidance. Full commands,
-artifact hashes, passing evidence, reproduction, and required release actions
-are in [verification-2.md](verification-2.md). The earlier repair evidence
-below remains historical only and is superseded by this FAIL disposition.
-
-## Repair verification — deployed and reverified (2026-08-27)
-
-This repair supersedes the **FAIL** disposition for candidate
-`48d81d6323e3a703d8f55a44c029173265698b10` in
-[verification-1.md](verification-1.md). It preserves the independently
-passing local-first loop, import, MIDI, privacy, accessibility, and offline
-flows, and repairs every reported release finding:
-
-- Service-worker updates now install into the waiting state. A controlled app
-  shows the persistent “Fresh version ready” notice; **Update** sends an
-  explicit `SKIP_WAITING` message and reloads only after `controllerchange`.
-  The notice also survives ordinary app rerenders.
-- `public/staticwebapp.config.json` is deployed with the static site. It gives
-  `/assets/*` `Cache-Control: public, max-age=31536000, immutable`, keeps
-  `/sw.js` and the manifest revalidatable, and serves `.webmanifest` as
-  `application/manifest+json`.
-- The same config adds a self-only CSP (with only the two Sociobot billing
-  origins and the local `blob:` audio/image uses needed by Hookback) plus an
-  explicit `Permissions-Policy` that scopes microphone and MIDI to this
-  origin and disables unrelated sensitive capabilities.
-
-The two requested regression layers are in place: Vitest asserts the shipped
-response-policy configuration, and Playwright creates a real waiting update
-on a controlled page, confirms the toast, clicks Update, and confirms that
-the replacement worker controls the reload.
-
-## What was built
-
-Hookback is a complete static, installable PWA for learning a short melody from
-a user-owned local audio file:
-
-- Audio files are decoded locally and stored as blobs in IndexedDB. Users set
-  accessible A/B points, hear a continuously repeating phrase, and return to a
-  saved queue after reload.
-- Microphone answers use `getUserMedia`/`MediaRecorder`; the visible coral
-  recording state remains on screen until the user finishes. Audio is decoded
-  in memory, reduced to a monophonic pitch track, and discarded.
-- Web MIDI is input-only (`sysex: false`, `software: false`) and records note-on
-  values without requesting output/write access.
-- The local comparison reports overall match, transposition-aware contour
-  match, median pitch-center distance, an overlaid contour chart, and one
-  phrase-specific next hint. Unclear/polyphonic input gets an honest uncertain
-  state rather than fabricated transcription.
-- Practice attempts, due dates, and queue state persist locally. JSON
-  export/import includes audio and is available to free users.
-- The free core is fully usable. A $19 one-time Studio license adds named
-  practice packs and all-time progress review. Checkout/verification use the
-  Sociobot pilot API by default, with no product ID hardcoded; production sets
-  `VITE_BILLING_BASE=https://api.sociobot.in/api/v1`. License returns are
-  captured, locally cached, removed from the URL, verified at most daily, and
-  never block the free first paint.
-- `/privacy/`, `/terms/`, `robots.txt`, sitemap, manifest, 192/512 icons,
-  versioned service worker, app-shell/runtime caching, and an offline fallback
-  are included.
-- The product-specific generative-geometry system and original artwork
-  provenance are recorded in `.factory/design.md`. The shipped WebP is 29 KB.
-
-## Run and verify
-
-```sh
-npm ci
-npm test
-npx playwright install chromium
-npm run test:e2e
-npm run build
-npm run preview
-```
-
-`npm run build` is the exact build command. It produces `dist/index.html` at
-the required static deploy root.
-
-Repair verification completed on 2026-08-27:
-
-- Fresh `npm ci`: passed, 0 vulnerabilities.
-- `npm test`: 7/7 passed (the original four pitch tests plus three exact static
-  response-policy regression tests).
-- `npm run build`: passed (`tsc --noEmit && vite build`), producing
-  `dist/index.html`; the repaired production bundle is 30.79 KB JS (11.38 KB
-  gzip) and 14.97 KB CSS (4.33 KB gzip).
-- `npm run test:e2e`: 6/6 passed at 390×844. It retains local WAV import,
-  persisted A/B loop, simulated MIDI comparison, keyboard order, legal routes,
-  axe checks, and explicit offline reload; it adds the controlled
-  service-worker update/activate regression.
-- `verify-url.sh` against the production-style SWA emulator found zero console
-  or page errors, a title, `lang=en`, one `h1`, one `main`, and no missing image
-  alt text. Its desktop and 390×844 screenshots were captured. An additional
-  Playwright check found no horizontal overflow or console errors at 1440×1000
-  or 390×844 under the deployed CSP.
-- Axe CLI against the SWA emulator: 0 violations. Lighthouse mobile on the
-  SWA emulator: Performance 100, Accessibility 100, Best Practices 100, SEO
-  100; FCP 1.3 s, LCP 1.7 s, CLS 0, total blocking time 0 ms.
-- Direct emulator header checks confirmed immutable JS caching, revalidatable
-  worker/manifest caching, `application/manifest+json`, CSP, and
-  Permissions-Policy. No analytics, CDN scripts, remote fonts, or tracking
-  were added.
-
-## Production deployment evidence
-
-- Deployed `dist/` as static site `song-loop-earcoach` (Azure Static Web Apps
-  deployment `4e17f801-7ec2-4324-83bc-193fce2a7aba`) after pushing repair
-  commit `6b4cef670b021b8502221fc9c69d953756b042be`.
-- Live SHA-256 identity matched the built artifacts exactly: `/` and
-  `dist/index.html` `838b3dd34d839543c0cbe7321d2a6dbee14f288ad68af2ec17458c161b1a4f9a`;
-  `/assets/index-DphH74_g.js` and its built counterpart
-  `8ae8d20633be7d9a703a1664d3c3cbaed91b6ec835f61ec4b7cbc85fe8456348`;
-  `/sw.js` and `dist/sw.js`
-  `725db575452d8d8ead531e362906c899895e969365ed0dc2f132bbe454357c10`.
-- Live headers are `Cache-Control: public, max-age=31536000, immutable` for
-  the hashed JS; `no-cache` for `/sw.js` and the manifest; and
-  `Content-Type: application/manifest+json` for the manifest. The deployed
-  root sends the recorded CSP and `Permissions-Policy`.
-- `verify-url.sh https://song-loop-earcoach.sociobot.in/` passed with zero
-  console/page errors and the expected title, language, heading, main landmark,
-  and image alt text. Axe CLI against the live URL found 0 violations.
-- A fresh 390×844 live Chromium context installed the worker, reloaded under
-  control, simulated a changed worker URL, observed the visible update toast,
-  clicked **Update**, and confirmed the replacement controller. It emitted no
-  errors and requested only `https://song-loop-earcoach.sociobot.in`.
-
-## Known limits and next steps
-
-- Pitch estimation is intentionally monophonic. Chords, heavy drums, room
-  noise, and dense mixes can reduce confidence; the UI explains this.
-- Actual microphone capture and physical MIDI hardware depend on browser/device
-  permissions and cannot be hardware-automated in this container. The MIDI
-  browser flow was exercised with a standards-shaped virtual input; microphone
-  denial/unsupported states are implemented.
-- Safari does not expose Web MIDI. Microphone mode remains available there.
-- The factory still needs to register the paid product and replace the staging
-  billing base at release. No infrastructure, DNS, product ID, or billing
-  credentials were changed here.
+- Local screenshots and Lighthouse: `/work/.evidence/repair-4-local/`
+- Live phone and desktop screenshots: `/work/.evidence/repair-4-live/`
+- Live browser summary: `/work/.evidence/repair-4-live/summary.json`
+- Clean command log: `/work/.evidence/repair-4-clean.log`
+- Catalog description: `/work/.evidence/catalog-description.txt`
+- Billing offer metadata: `/work/.evidence/billing-offer.json`

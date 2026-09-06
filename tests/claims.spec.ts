@@ -106,7 +106,7 @@ test("@claim:no-tracking loads no analytics, pixels, or remote scripts", async (
   expect([...requests, ...resourceUrls].every(url => new URL(url).origin === "http://127.0.0.1:4173")).toBe(true);
 });
 
-test("@claim:clip-duration accepts 5 seconds and rejects outside 5–12 seconds", async ({ page }) => {
+test("@claim:clip-duration accepts both 5 and exactly 12 seconds, and rejects outside the range", async ({ page }) => {
   await page.goto("/demo");
   const input = page.locator("#queue-file");
   await input.setInputFiles({ name: "short.wav", mimeType: "audio/wav", buffer: wavFixture(0.8) });
@@ -116,6 +116,12 @@ test("@claim:clip-duration accepts 5 seconds and rejects outside 5–12 seconds"
   await input.setInputFiles({ name: "five-seconds.wav", mimeType: "audio/wav", buffer: wavFixture(5) });
   await expect(page.getByRole("heading", { name: "five-seconds" })).toBeVisible();
   await expect(page.getByText("Ready. A 0:05.0 loop is selected.")).toBeVisible();
+  await input.setInputFiles({ name: "twelve-seconds.wav", mimeType: "audio/wav", buffer: wavFixture(12) });
+  await expect(page.getByRole("heading", { name: "twelve-seconds" })).toBeVisible();
+  await expect(page.getByText("Ready. A 0:10.0 loop is selected.")).toBeVisible();
+  await page.locator("#range-b").fill("12");
+  await expect(page.locator("#b-label")).toHaveText("B · 0:12.0");
+  await expect(page.locator(".loop-length")).toHaveText("12.0 sec");
 });
 
 test("@claim:recording-state shows when the microphone is recording locally", async ({ page }) => {
@@ -205,11 +211,43 @@ test("@claim:backup-audio exports sample audio and restores it", async ({ page }
   await expect(page.getByText("Four-note guitar phrase", { exact: true })).toBeVisible();
 });
 
-test("@claim:free-studio-split keeps core practice free and lists the paid offer", async ({ page }) => {
+test("@claim:free-studio-split runs free practice, then restores Studio packs and progress", async ({ page }) => {
+  const fixtureLicense = "fixture-paid-studio-license";
+  await page.route("https://api.sociobot.in/api/v1/products/song-loop-earcoach/checkout", route => route.fulfill({
+    status: 302,
+    headers: { location: `http://127.0.0.1:4173/?license=${fixtureLicense}` }
+  }));
+  await page.route(new RegExp(`https://api\\.sociobot\\.in/api/v1/products/song-loop-earcoach/verify\\?license=${fixtureLicense}`), route => route.fulfill({
+    contentType: "application/json",
+    body: JSON.stringify({ valid: true, reason: "ok", expires_at: null })
+  }));
   await page.goto("/demo");
-  await expect(page.getByRole("button", { name: "Play loop" })).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Export my data" })).toBeEnabled();
+  await page.locator("#queue-file").setInputFiles({ name: "free-guitar-phrase.wav", mimeType: "audio/wav", buffer: wavFixture() });
+  await expect(page.getByRole("heading", { name: "free-guitar-phrase" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Add packs and progress review" })).toBeVisible();
+  await page.getByRole("button", { name: "Play loop" }).click();
+  await expect(page.locator("#live-status")).toContainText("Loop playing.");
+  await page.getByRole("button", { name: "Stop" }).click();
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export my data" }).click();
+  const download = await downloadPromise;
+  const backup = JSON.parse(await download.createReadStream().then(async stream => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+    return Buffer.concat(chunks).toString("utf8");
+  }));
+  expect(backup.clips).toHaveLength(2);
+  expect(backup.clips.some((clip: { name: string }) => clip.name === "free-guitar-phrase")).toBe(true);
   await expect(page.getByText("Hookback Studio · $19 one-time purchase")).toBeVisible();
   await expect(page.getByText(/Studio adds named practice packs and an all-time progress review/)).toBeVisible();
-  await expect(page.getByRole("link", { name: "Buy Studio" })).toHaveAttribute("href", "https://api.sociobot.in/api/v1/products/song-loop-earcoach/checkout");
+  await page.getByRole("link", { name: "Buy Studio" }).click();
+  await expect(page).toHaveURL("http://127.0.0.1:4173/");
+  await expect(page.getByText("Studio license active")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Practice progress" })).toBeVisible();
+  await page.locator("#clip-file").setInputFiles({ name: "studio-guitar-phrase.wav", mimeType: "audio/wav", buffer: wavFixture() });
+  await expect(page.getByRole("heading", { name: "studio-guitar-phrase" })).toBeVisible();
+  await page.getByLabel("Practice pack for this clip").fill("Friday guitar");
+  await page.getByRole("button", { name: "Save pack" }).click();
+  await expect(page.getByText("Saved to “Friday guitar”.")).toBeVisible();
+  await expect(page.locator(".queue-item")).toContainText("Friday guitar");
 });

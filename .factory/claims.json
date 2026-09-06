@@ -39,7 +39,7 @@
     "claim": "Hookback accepts audio clips from 5 to 12 seconds",
     "where": "home, README",
     "test": "npm run test:claims -- --project=desktop --grep @claim:clip-duration",
-    "sandbox": "fresh /demo context; submit 0.8, 12.5, and 5 second WAV fixtures and assert rejection, rejection, acceptance"
+    "sandbox": "fresh /demo context; submit 0.8 and 12.5 second WAV fixtures and assert rejection, then accept exact 5.000 and 12.000 second WAV fixtures"
   },
   {
     "id": "recording-state",
@@ -81,6 +81,6 @@
     "claim": "Core practice is free; $19 Studio adds packs and all-time progress review as a one-time purchase",
     "where": "home, README, terms",
     "test": "npm run test:claims -- --project=desktop --grep @claim:free-studio-split",
-    "sandbox": "fresh /demo context without a license; operate core controls and inspect exact offer and checkout target"
+    "sandbox": "fresh isolated context; operate free playback and backup export, fixture checkout return with a valid license, then save a named pack and inspect all-time progress"
   }
 ]

@@ -22,6 +22,15 @@ test("@claim:demo-isolation keeps sample changes away from real practice", async
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByText("my-real-phrase", { exact: true })).toBeVisible();
   await expect(page.getByText("Four-note guitar phrase", { exact: true })).toHaveCount(0);
+
+  await page.goto("/demo");
+  await expect(page.getByText(DEMO_LABEL)).toBeVisible();
+  await page.getByRole("button", { name: "Reset demo" }).click();
+  await expect(page.getByText("Demo reset to the original sample.")).toBeVisible();
+  await page.getByRole("link", { name: "Start for real" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByText("my-real-phrase", { exact: true })).toBeVisible();
+  await expect(page.getByText("Four-note guitar phrase", { exact: true })).toHaveCount(0);
 });
 
 test("@claim:offline-reload reloads the sample after the first visit", async ({ browser }) => {

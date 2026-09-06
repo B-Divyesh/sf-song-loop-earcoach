@@ -4,7 +4,7 @@
     "claim": "The sample demo does not change real practice data",
     "where": "demo banner, README",
     "test": "npm run test:claims -- --project=desktop --grep @claim:demo-isolation",
-    "sandbox": "fresh browser context; seed real data, change and reset the demo, then verify real data is unchanged"
+    "sandbox": "fresh browser context; seed real data, change and reset the demo, return to real practice twice, and verify the visible real clip is unchanged"
   },
   {
     "id": "offline-reload",

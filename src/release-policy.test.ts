@@ -4,8 +4,9 @@ import { describe, expect, it } from "vitest";
 
 type StaticConfig = {
   globalHeaders: Record<string, string>;
-  routes: Array<{ route: string; headers: Record<string, string> }>;
+  routes: Array<{ route: string; headers?: Record<string, string>; rewrite?: string }>;
   mimeTypes: Record<string, string>;
+  responseOverrides: Record<string, { rewrite: string }>;
 };
 
 const config = JSON.parse(readFileSync(fileURLToPath(new URL("../public/staticwebapp.config.json", import.meta.url)), "utf8")) as StaticConfig;
@@ -29,5 +30,10 @@ describe("static release response policy", () => {
     expect(csp).toContain("connect-src 'self' https://api.sociobot.in https://pilot-api.sociobot.in");
     expect(csp).toContain("object-src 'none'");
     expect(config.globalHeaders["Permissions-Policy"]).toContain("microphone=(self)");
+  });
+
+  it("serves the demo app explicitly and uses the designed page for unknown routes", () => {
+    expect(config.routes.find(item => item.route === "/demo")?.rewrite).toBe("/index.html");
+    expect(config.responseOverrides["404"].rewrite).toBe("/404.html");
   });
 });

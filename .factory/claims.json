@@ -1,0 +1,86 @@
+[
+  {
+    "id": "demo-isolation",
+    "claim": "The sample demo does not change real practice data",
+    "where": "demo banner, README",
+    "test": "npm run test:claims -- --project=desktop --grep @claim:demo-isolation",
+    "sandbox": "fresh browser context; seed real data, change and reset the demo, then verify real data is unchanged"
+  },
+  {
+    "id": "offline-reload",
+    "claim": "Practice works offline after the first visit",
+    "where": "home facts, README, terms",
+    "test": "npm run test:claims -- --project=desktop --grep @claim:offline-reload",
+    "sandbox": "fresh browser context at /demo; wait for service worker control, set offline, reload, and inspect sample output"
+  },
+  {
+    "id": "no-account",
+    "claim": "Hookback works without an account",
+    "where": "privacy, README",
+    "test": "npm run test:claims -- --project=desktop --grep @claim:no-account",
+    "sandbox": "fresh /demo context with no cookies or stored credentials; operate the practice controls"
+  },
+  {
+    "id": "local-audio",
+    "claim": "Hookback does not upload clips or answers",
+    "where": "home, privacy, README",
+    "test": "npm run test:claims -- --project=desktop --grep @claim:local-audio",
+    "sandbox": "fresh /demo context; play sample and complete a MIDI answer while recording every outgoing request"
+  },
+  {
+    "id": "no-tracking",
+    "claim": "Hookback has no ads, behavioral analytics, tracking pixels, or remote fonts and scripts",
+    "where": "privacy, README",
+    "test": "npm run test:claims -- --project=desktop --grep @claim:no-tracking",
+    "sandbox": "fresh /demo context; inspect browser requests and loaded resource URLs after reset"
+  },
+  {
+    "id": "clip-duration",
+    "claim": "Hookback accepts audio clips from 5 to 12 seconds",
+    "where": "home, README",
+    "test": "npm run test:claims -- --project=desktop --grep @claim:clip-duration",
+    "sandbox": "fresh /demo context; submit 0.8, 12.5, and 5 second WAV fixtures and assert rejection, rejection, acceptance"
+  },
+  {
+    "id": "recording-state",
+    "claim": "Microphone recording has a visible local recording state",
+    "where": "home, README",
+    "test": "npm run test:claims -- --project=desktop --grep @claim:recording-state",
+    "sandbox": "fresh /demo context with a granted fake microphone; start recording and inspect visible name, state, and stop action"
+  },
+  {
+    "id": "midi-read-only",
+    "claim": "Web MIDI reads input notes and does not send output",
+    "where": "home, README",
+    "test": "npm run test:claims -- --project=desktop --grep @claim:midi-read-only",
+    "sandbox": "fresh /demo context with input and output fakes; assert non-sysex access, received note, and no output call"
+  },
+  {
+    "id": "pitch-feedback",
+    "claim": "Hookback compares single-note pitch and melodic shape and gives one next step",
+    "where": "home, README, terms",
+    "test": "npm run test:claims -- --project=desktop --grep @claim:pitch-feedback",
+    "sandbox": "fresh /demo context; import known A4-to-B4 WAV, answer with matching MIDI notes, and assert score, pitch center, and next step"
+  },
+  {
+    "id": "practice-persists",
+    "claim": "Saved practice remains after a page reload",
+    "where": "README, privacy",
+    "test": "npm run test:claims -- --project=desktop --grep @claim:practice-persists",
+    "sandbox": "fresh /demo context; change the loop, reload, and assert the sample, loop point, answer, and result remain"
+  },
+  {
+    "id": "backup-audio",
+    "claim": "JSON backup export and import includes selected audio",
+    "where": "README, privacy",
+    "test": "npm run test:claims -- --project=desktop --grep @claim:backup-audio",
+    "sandbox": "fresh /demo context; parse downloaded JSON audio bytes, then import it and inspect restored sample"
+  },
+  {
+    "id": "free-studio-split",
+    "claim": "Core practice is free; $19 Studio adds packs and all-time progress review as a one-time purchase",
+    "where": "home, README, terms",
+    "test": "npm run test:claims -- --project=desktop --grep @claim:free-studio-split",
+    "sandbox": "fresh /demo context without a license; operate core controls and inspect exact offer and checkout target"
+  }
+]

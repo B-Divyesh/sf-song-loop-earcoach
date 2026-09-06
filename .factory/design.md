@@ -98,3 +98,17 @@ Prompt sheet:
 Generation: Azure AI Foundry factory image deployment via
 `/opt/fleet/lib/gen-image.sh`, generated 2026-08-27. Original for Hookback;
 retained prompt sidecar in `assets/src/` and disclosed in the footer.
+
+The 1200×630 `hookback-social.jpg` social preview is a centered crop of that
+original source. The 180px Apple touch icon is resized from the hand-authored
+Hookback icon. Both derivatives were made locally on 2026-09-06 and add no
+third-party material.
+
+## Repair 4 application
+
+The loop-ribbon identity remains unchanged. Plain job headings now replace
+metaphorical headings, while the clipped corners, registration grid, acid-lime
+actions, coral recording state, and cyan comparison state keep the product
+recognizable. The demo banner uses a flat pulse-lime strip because it marks a
+storage boundary, not a promotion. It stays visible above the shared site
+header and does not add decorative motion.

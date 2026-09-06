@@ -10,6 +10,7 @@ Hookback is a local-first PWA for self-taught instrumentalists learning short so
 
 - Runtime implementation SHA: `4b5b9a91891a2fb512a8546864ba9a81938f6900`. The final HTML, JavaScript, CSS, service worker, and manifest are byte-for-byte identical to this implementation candidate.
 - Verification and claim-suite SHA: `5f40314`. Its repair tests and claim-registry descriptions do not alter the built artifact.
+- Documentation report SHA: `283d435d58e5d8b9ee7a4cf76d80d3c87a0c55e6`. This later report-only update also does not alter the artifact.
 - This handoff is a later documentation-only commit and does not change `dist/`.
 - The durable static deployer uploaded `dist/` to the existing production Azure Static Web App `sf-song-loop-earcoach` on 6 September 2026. No backend, database, billing setting, environment variable, or replica setting changed.
 
